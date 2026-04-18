@@ -1,0 +1,10 @@
+# Model weights — 267MB, too big for GitHub. Re-download via:
+#   cactus download google/functiongemma-270m-it
+# then copy into ios/Voice-AI-Copilot/Voice-AI-Copilot/Models/functiongemma-270m-it/
+ios/Voice-AI-Copilot/Voice-AI-Copilot/Models/
+
+# Xcode
+**/xcuserdata/
+**/*.xcuserstate
+**/DerivedData/
+.DS_Store
