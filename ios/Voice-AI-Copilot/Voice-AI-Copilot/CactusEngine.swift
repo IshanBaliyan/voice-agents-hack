@@ -17,13 +17,20 @@ final class CactusEngine: ObservableObject {
         if case .loading = loadState { return }
         loadState = .loading
 
-        guard let resourcePath = Bundle.main.resourcePath,
-              FileManager.default.fileExists(atPath: resourcePath + "/config.txt") else {
-            loadState = .failed("Model weights not found in app bundle (expected config.txt + layer_*.weights at bundle root).")
+        // Dev-mode: point directly at E2B weights on the Mac filesystem (works in Simulator only).
+        // For a real device build, we'd download these to FileManager.cachesDirectory at first launch.
+        let devPath = "/Users/ishan/Development/yc-voice-april-2026/yc-voice-v2/cactus/weights/gemma-4-e2b-it"
+        let bundlePath = Bundle.main.resourcePath ?? ""
+
+        let path: String
+        if FileManager.default.fileExists(atPath: devPath + "/config.txt") {
+            path = devPath
+        } else if FileManager.default.fileExists(atPath: bundlePath + "/config.txt") {
+            path = bundlePath
+        } else {
+            loadState = .failed("Model weights not found. Expected at \(devPath) (Simulator dev path) or bundle root.")
             return
         }
-
-        let path = resourcePath
         do {
             let handle = try await Task.detached(priority: .userInitiated) {
                 try cactusInit(path, nil, false)
@@ -41,7 +48,7 @@ final class CactusEngine: ObservableObject {
         partial = ""
 
         let messagesJson = buildMessagesJson(userPrompt: prompt)
-        let options = #"{"max_tokens":256,"temperature":0.7}"#
+        let options = #"{"max_tokens":200,"temperature":0.2,"top_p":0.9,"stop":["<end_of_turn>","<|end|>","</s>"]}"#
 
         do {
             try await Task.detached(priority: .userInitiated) { [weak self] in
@@ -63,7 +70,10 @@ final class CactusEngine: ObservableObject {
     }
 
     private func buildMessagesJson(userPrompt: String) -> String {
-        let obj: [[String: String]] = [["role": "user", "content": userPrompt]]
+        let obj: [[String: String]] = [
+            ["role": "system", "content": "You are a concise, helpful assistant. Answer briefly in plain English."],
+            ["role": "user", "content": userPrompt]
+        ]
         let data = try! JSONSerialization.data(withJSONObject: obj)
         return String(data: data, encoding: .utf8)!
     }
