@@ -16,9 +16,7 @@ struct Voice_AI_CopilotApp: App {
 
     var body: some Scene {
         WindowGroup {
-            // Single-stack Otto experience. Training lives inside the shared
-            // nav bar (see TrainingView) rather than a separate tab.
-            OttoRootView()
+            MainTabView()
                 .environmentObject(engine)
         }
     }
