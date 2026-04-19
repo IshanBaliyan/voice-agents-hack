@@ -14,7 +14,7 @@ struct ContentView: View {
     @State private var cameraManager = CameraManager()
     @State private var audioManager = AudioManager()
 
-    @State private var serverURL = "wss://68bd-50-175-245-62.ngrok-free.app/ws"
+    @State private var serverURL = "wss://4e0b-50-175-245-62.ngrok-free.app/ws"
     @State private var isRecording = false
     @State private var statusText = "Connecting…"
     @State private var responseText = ""
@@ -23,7 +23,7 @@ struct ContentView: View {
     // MARK: - Init
 
     init() {
-        let url = "wss://68bd-50-175-245-62.ngrok-free.app/ws"
+        let url = "wss://4e0b-50-175-245-62.ngrok-free.app/ws"
         let manager = WebSocketManager(urlString: url)
         _wsManager = State(wrappedValue: manager)
         // Forward every streamed audio chunk straight into the player so
@@ -78,6 +78,9 @@ struct ContentView: View {
                     .padding(.horizontal)
                     .accessibilityLabel("Camera preview")
 
+                // Retrieved page image (RAG hit from the server)
+                retrievedPageSection
+
                 // Response label
                 ScrollView {
                     Text(responseText.isEmpty ? "No response yet" : responseText)
@@ -125,6 +128,68 @@ struct ContentView: View {
             // that a response arrived.
             guard data != nil else { return }
             if wsManager.state == .connected { statusText = "Ready" }
+        }
+    }
+
+    // MARK: - Retrieved page (RAG)
+
+    @State private var selectedPageIndex: Int = 0
+
+    @ViewBuilder
+    private var retrievedPageSection: some View {
+        let pages = wsManager.retrievedPages
+        if !pages.isEmpty {
+            let clampedIndex = min(selectedPageIndex, pages.count - 1)
+            let current = pages[clampedIndex]
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Image(systemName: "doc.text.magnifyingglass")
+                        .foregroundColor(.accentColor)
+                    Text("\(current.source) · p. \(current.page)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(.white)
+                    Spacer()
+                    Text("\(clampedIndex + 1)/\(pages.count) · \(String(format: "%.2f", current.score))")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundColor(.gray)
+                }
+
+                TabView(selection: $selectedPageIndex) {
+                    ForEach(Array(pages.enumerated()), id: \.element.id) { idx, page in
+                        Image(uiImage: page.image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .tag(idx)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .always))
+                .indexViewStyle(.page(backgroundDisplayMode: .always))
+                .frame(height: 280)
+
+                if !current.query.isEmpty {
+                    Text("“\(current.query)”")
+                        .font(.caption2)
+                        .italic()
+                        .foregroundColor(.gray)
+                        .lineLimit(2)
+                }
+            }
+            .padding(10)
+            .background(Color.white.opacity(0.07))
+            .cornerRadius(12)
+            .padding(.horizontal)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(
+                "Reference \(clampedIndex + 1) of \(pages.count): \(current.source), page \(current.page). Swipe to see more."
+            )
+            .transition(.opacity)
+            .onChange(of: pages.first?.query) { _, _ in
+                // New query — reset the carousel to the top hit.
+                selectedPageIndex = 0
+            }
         }
     }
 

@@ -4,6 +4,26 @@
 //
 
 import Foundation
+import UIKit
+
+/// Metadata + decoded image for the most recent RAG hit forwarded by the
+/// model server. Emitted once per conversational turn when the transcribed
+/// query matches a PDF page above the server's score threshold.
+struct RetrievedPage: Equatable, Identifiable {
+    let id = UUID()
+    let image: UIImage
+    let source: String
+    let page: Int
+    let score: Double
+    let query: String
+    let rank: Int
+    let total: Int
+    let receivedAt: Date
+
+    static func == (lhs: RetrievedPage, rhs: RetrievedPage) -> Bool {
+        lhs.id == rhs.id
+    }
+}
 
 enum WSState: Equatable {
     case disconnected, connecting, connected, error(String)
@@ -25,6 +45,11 @@ final class WebSocketManager {
     /// be queued into the player without losing frames to SwiftUI
     /// coalescing.
     var onAudioChunk: ((Data) -> Void)?
+    /// Pages retrieved by the server-side RAG pipeline for the *current*
+    /// turn. Cleared when a new query's first frame arrives (detected via
+    /// a change of `query` string), then appended as subsequent frames
+    /// stream in for the same query.
+    var retrievedPages: [RetrievedPage] = []
 
     private var task: URLSessionWebSocketTask?
     private var urlSession: URLSession?
@@ -33,7 +58,7 @@ final class WebSocketManager {
 
     init(urlString: String) {
         self.serverURL = URL(string: urlString)
-            ?? URL(string: "wss://68bd-50-175-245-62.ngrok-free.app/ws")!
+            ?? URL(string: "wss://4e0b-50-175-245-62.ngrok-free.app/ws")!
         connect()
     }
 
@@ -128,6 +153,47 @@ final class WebSocketManager {
             default:
                 break
             }
+            return
+        }
+
+        // page_image frames carry extra metadata alongside `data` — handle
+        // them before the generic `payload` unwrap below.
+        if type == "page_image" {
+            guard
+                let payload = json["data"] as? String,
+                let bytes = Data(base64Encoded: payload),
+                let image = UIImage(data: bytes)
+            else { return }
+            let source = json["source"] as? String ?? ""
+            let page = (json["page"] as? Int)
+                ?? Int(json["page"] as? Double ?? 0)
+            let score = (json["score"] as? Double)
+                ?? Double(json["score"] as? Int ?? 0)
+            let query = json["query"] as? String ?? ""
+            let rank = (json["rank"] as? Int)
+                ?? Int(json["rank"] as? Double ?? 0)
+            let total = (json["total"] as? Int)
+                ?? Int(json["total"] as? Double ?? 0)
+
+            // First frame of a new query? Clear the previous turn's pages.
+            // Subsequent frames (same query) get appended so the carousel
+            // fills in as images arrive.
+            if retrievedPages.first?.query != query {
+                retrievedPages = []
+            }
+            retrievedPages.append(RetrievedPage(
+                image: image,
+                source: source,
+                page: page,
+                score: score,
+                query: query,
+                rank: rank,
+                total: total,
+                receivedAt: Date()
+            ))
+            // Keep pages ordered by server rank so the carousel is stable
+            // even if frames arrive out of order.
+            retrievedPages.sort { $0.rank < $1.rank }
             return
         }
 
