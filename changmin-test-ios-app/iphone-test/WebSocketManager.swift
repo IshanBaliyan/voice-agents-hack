@@ -33,7 +33,7 @@ final class WebSocketManager {
 
     init(urlString: String) {
         self.serverURL = URL(string: urlString)
-            ?? URL(string: "wss://4e0b-50-175-245-62.ngrok-free.app/ws")!
+            ?? URL(string: "wss://68bd-50-175-245-62.ngrok-free.app/ws")!
         connect()
     }
 

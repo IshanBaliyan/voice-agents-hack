@@ -13,10 +13,9 @@ final class AudioManager: NSObject {
     private var isCapturing = false
     private var onChunk: ((String) -> Void)?
 
-    // Playback
     private var playerNode = AVAudioPlayerNode()
     private let playerFormat = AVAudioFormat(commonFormat: .pcmFormatInt16,
-                                             sampleRate: 16000,
+                                             sampleRate: 24000,
                                              channels: 1,
                                              interleaved: true)!
 

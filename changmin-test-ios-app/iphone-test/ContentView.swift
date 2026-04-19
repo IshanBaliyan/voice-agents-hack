@@ -14,7 +14,7 @@ struct ContentView: View {
     @State private var cameraManager = CameraManager()
     @State private var audioManager = AudioManager()
 
-    @State private var serverURL = "wss://4e0b-50-175-245-62.ngrok-free.app/ws"
+    @State private var serverURL = "wss://68bd-50-175-245-62.ngrok-free.app/ws"
     @State private var isRecording = false
     @State private var statusText = "Connecting…"
     @State private var responseText = ""
@@ -23,7 +23,7 @@ struct ContentView: View {
     // MARK: - Init
 
     init() {
-        let url = "wss://4e0b-50-175-245-62.ngrok-free.app/ws"
+        let url = "wss://68bd-50-175-245-62.ngrok-free.app/ws"
         let manager = WebSocketManager(urlString: url)
         _wsManager = State(wrappedValue: manager)
         // Forward every streamed audio chunk straight into the player so

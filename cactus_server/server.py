@@ -260,10 +260,16 @@ def _cleanup_files(paths: List[str]) -> None:
 
 from . import kokoro_tts
 
-# Matches a sentence-terminating punctuation mark followed by whitespace /
-# end-of-string. Used to flush chunks to the Kokoro TTS worker so audio can
-# start playing on the client before the full response is decoded.
-_SENTENCE_BOUNDARY = re.compile(r"[\.!\?](?:\s|$)")
+# Matches clause- or sentence-terminating punctuation followed by whitespace /
+# end-of-string. Clause-level splitting (,;:) makes the first audio chunk much
+# shorter than waiting for a full sentence, so time-to-first-audio drops
+# roughly proportional to the first clause's length vs. the first sentence's.
+_SENTENCE_BOUNDARY = re.compile(r"[\.!\?,;:](?:\s|$)")
+
+# Don't fire TTS on fragments shorter than this — Kokoro has a ~600ms fixed
+# floor regardless of input length, so tiny chunks waste inference time and
+# produce choppy audio. Tuned so the first chunk averages ~2–4 words.
+_MIN_TTS_CHUNK_CHARS = 16
 
 # Dedicated pool for Kokoro synthesis. With >1 worker, sentence N+1 begins
 # synthesising while sentence N is still being transmitted; the per-session
@@ -347,18 +353,23 @@ class _CactusSession:
         """
         Runs on the asyncio loop thread. Appends a newly decoded token to the
         pending TTS buffer and fires Kokoro synthesis as soon as a complete
-        sentence has arrived. Synthesis runs in parallel across sentences;
-        the TTS worker serialises them back onto the wire in order.
+        clause has arrived (>= _MIN_TTS_CHUNK_CHARS). Synthesis runs in
+        parallel across clauses; the TTS worker serialises them back onto
+        the wire in order.
         """
         self._pending_tts_text += delta
         while True:
-            m = _SENTENCE_BOUNDARY.search(self._pending_tts_text)
-            if not m:
+            chosen_end: Optional[int] = None
+            for m in _SENTENCE_BOUNDARY.finditer(self._pending_tts_text):
+                end = m.end()
+                if len(self._pending_tts_text[:end].strip()) >= _MIN_TTS_CHUNK_CHARS:
+                    chosen_end = end
+                    break
+            if chosen_end is None:
                 break
-            end = m.end()
-            sentence = self._pending_tts_text[:end].strip()
-            self._pending_tts_text = self._pending_tts_text[end:]
-            self._submit_sentence(sentence)
+            chunk = self._pending_tts_text[:chosen_end].strip()
+            self._pending_tts_text = self._pending_tts_text[chosen_end:]
+            self._submit_sentence(chunk)
 
     def _flush_remaining_tts(self) -> None:
         """Flush any trailing non-sentence text at end of turn."""
@@ -666,6 +677,11 @@ async def lifespan(app: FastAPI):
             await _ensure_model_loaded()
         except Exception as exc:
             logger.error(f"Failed to pre-load Gemma 4 on startup: {exc}")
+    # Pre-warm Kokoro so the first user sentence doesn't pay the pipeline
+    # init + first-inference cold-start cost (~1–3s on Mac CPU). Run in a
+    # thread so it doesn't block the event loop.
+    loop = asyncio.get_running_loop()
+    loop.run_in_executor(_kokoro_executor, kokoro_tts.warmup)
     yield
 
 
