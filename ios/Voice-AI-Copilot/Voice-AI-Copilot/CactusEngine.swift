@@ -77,6 +77,10 @@ final class CactusEngine: ObservableObject {
         await runCompletion(userPrompt: prompt, pcmData: nil)
     }
 
+    func generate(prompt: String, imagePath: String) async {
+        await runCompletion(userPrompt: prompt, pcmData: nil, imagePath: imagePath)
+    }
+
     func generate(pcmData: Data, imagePath: String? = nil) async {
         let prompt = imagePath == nil
             ? "Answer the user's spoken question in plain English."

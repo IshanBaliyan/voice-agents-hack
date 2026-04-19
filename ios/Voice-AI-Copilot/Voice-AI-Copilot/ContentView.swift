@@ -11,7 +11,7 @@ private enum SpotifyPalette {
 }
 
 struct ContentView: View {
-    @StateObject private var engine = CactusEngine()
+    @EnvironmentObject private var engine: CactusEngine
     @StateObject private var speaker = Speaker()
     @StateObject private var recorder = AudioRecorder()
     @StateObject private var camera = CameraCapture()
@@ -282,4 +282,7 @@ struct ContentView: View {
     }
 }
 
-#Preview { ContentView() }
+#Preview {
+    ContentView()
+        .environmentObject(CactusEngine())
+}

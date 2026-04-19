@@ -9,9 +9,14 @@ import SwiftUI
 
 @main
 struct Voice_AI_CopilotApp: App {
+    // One model instance for the whole app — loading the Gemma weights twice
+    // OOMs the phone, so ContentView and the Training tab share this.
+    @StateObject private var engine = CactusEngine()
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MainTabView()
+                .environmentObject(engine)
         }
     }
 }
