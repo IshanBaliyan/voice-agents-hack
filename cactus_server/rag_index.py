@@ -33,12 +33,28 @@ class RagIndex:
         return self._dim
 
     def search(
-        self, query_vec: List[float], top_k: int = 1
+        self,
+        query_vec: List[float],
+        top_k: int = 1,
+        make: Optional[str] = None,
+        model: Optional[str] = None,
+        year: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
+        """Semantic search, optionally narrowed to a specific vehicle.
+
+        When a vehicle filter is supplied, Qdrant pre-filters by payload
+        (make/model/year) before scoring — so retrieval only touches pages
+        from the matching PDF(s). If no pages have the requested metadata,
+        the filter returns zero hits (the server logs this and the user
+        sees no page_image frame, which is the right behavior — we don't
+        want cross-vehicle bleed-through just because nothing matched).
+        """
+        query_filter = _build_filter(make=make, model=model, year=year)
         hits = self._client.query_points(
             collection_name=self._collection,
             query=query_vec,
             limit=top_k,
+            query_filter=query_filter,
         ).points
         return [
             {
@@ -46,10 +62,33 @@ class RagIndex:
                 "page": h.payload.get("page"),
                 "image_path": h.payload.get("image_path"),
                 "text_preview": h.payload.get("text_preview"),
+                "make": h.payload.get("make"),
+                "model": h.payload.get("model"),
+                "year": h.payload.get("year"),
+                "display": h.payload.get("display"),
                 "score": float(h.score),
             }
             for h in hits
         ]
+
+
+def _build_filter(
+    make: Optional[str] = None,
+    model: Optional[str] = None,
+    year: Optional[int] = None,
+):
+    if not any([make, model, year]):
+        return None
+    from qdrant_client.models import FieldCondition, Filter, MatchValue
+
+    must = []
+    if make:
+        must.append(FieldCondition(key="make", match=MatchValue(value=make.lower())))
+    if model:
+        must.append(FieldCondition(key="model", match=MatchValue(value=model.lower())))
+    if year is not None:
+        must.append(FieldCondition(key="year", match=MatchValue(value=int(year))))
+    return Filter(must=must)
 
 
 def open_index(

@@ -113,6 +113,13 @@ except Exception as _rag_err:  # pragma: no cover
     logger.warning(f"RAG module unavailable: {_rag_err}")
     _open_rag_index = None  # type: ignore[assignment]
 
+try:
+    from cactus_server.vehicle import load_catalog as _load_vehicle_catalog, VehicleMatch
+except Exception as _veh_err:  # pragma: no cover
+    logger.warning(f"Vehicle catalog unavailable: {_veh_err}")
+    _load_vehicle_catalog = None  # type: ignore[assignment]
+    VehicleMatch = None  # type: ignore[assignment]
+
 _DEFAULT_QDRANT_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "qdrant_data"
 )
@@ -123,6 +130,12 @@ except ValueError:
     _RAG_MIN_SCORE = 0.5
 
 _rag_index = None  # set in lifespan
+_vehicle_catalog = None  # set in lifespan
+
+_DEFAULT_DOCS_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "docs"
+)
+_DOCS_DIR = os.getenv("CACTUS_DOCS_DIR", _DEFAULT_DOCS_DIR)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -365,6 +378,15 @@ class _CactusSession:
         ]
         self._processing_task: Optional[asyncio.Task] = None
 
+        # Current vehicle context for RAG filtering. Populated either by an
+        # explicit {"type":"vehicle", ...} message from iOS or by detecting
+        # a mention ("I have a 2018 Toyota Camry") in the user's transcribed
+        # text. Sticky for the session until overridden.
+        self._vehicle_make: Optional[str] = None
+        self._vehicle_model: Optional[str] = None
+        self._vehicle_year: Optional[int] = None
+        self._vehicle_display: Optional[str] = None
+
         # Per-turn sentence-level TTS streaming state.  `_pending_tts_text`
         # accumulates decoded tokens until we hit a sentence terminator; the
         # complete chunk is then pushed onto `_tts_queue`, where a worker
@@ -522,6 +544,24 @@ class _CactusSession:
 
         elif msg_type == "system":
             self._force_process_event.set()
+
+        elif msg_type == "vehicle":
+            # iOS sends {"type":"vehicle", "make":..., "model":..., "year":...}
+            # when the user selects a vehicle in the UI. Voice-based detection
+            # (below, in _retrieve_and_send_page) can still override per-turn.
+            if isinstance(message, dict):
+                make = (message.get("make") or "").lower() or None
+                model = (message.get("model") or "").lower() or None
+                year = message.get("year")
+                year_int = int(year) if isinstance(year, (int, str)) and str(year).isdigit() else None
+                self._vehicle_make = make
+                self._vehicle_model = model
+                self._vehicle_year = year_int
+                self._vehicle_display = message.get("display")
+                logger.info(
+                    f"Vehicle set from client: {self._vehicle_display or ''} "
+                    f"(make={make!r}, model={model!r}, year={year_int})"
+                )
 
         else:
             logger.warning(f"Unhandled message type: {msg_type!r}")
@@ -779,14 +819,49 @@ class _CactusSession:
         if not query_text:
             logger.info("RAG: empty query, skipping retrieval")
             return
-        logger.info(f"RAG: query={query_text!r}")
+
+        # Sniff the user's utterance for a vehicle mention. Anything found
+        # here overrides the session default for this turn only (we don't
+        # write back to self._vehicle_* so a one-off "how about a Tacoma"
+        # doesn't clobber the UI-selected vehicle). We deliberately do NOT
+        # pass the detected year to the filter — the user's year often
+        # differs from what's indexed, and a same-model manual from an
+        # adjacent year is still the best available match.
+        turn_make = self._vehicle_make
+        turn_model = self._vehicle_model
+        turn_year_spoken: Optional[int] = None
+        if _vehicle_catalog is not None:
+            detected = _vehicle_catalog.detect(query_text)
+            if not detected.is_empty:
+                turn_make = detected.make or turn_make
+                turn_model = detected.model or turn_model
+                turn_year_spoken = detected.year
+                logger.info(
+                    f"RAG: detected vehicle in utterance: "
+                    f"{detected.display or ''} "
+                    f"(make={detected.make!r}, model={detected.model!r}, "
+                    f"spoken_year={detected.year})"
+                )
+
+        filter_desc = (
+            f"make={turn_make!r} model={turn_model!r}"
+            + (f" (spoken year={turn_year_spoken})" if turn_year_spoken else "")
+            if (turn_make or turn_model)
+            else "no filter"
+        )
+        logger.info(f"RAG: query={query_text!r} [{filter_desc}]")
 
         vec = await loop.run_in_executor(
             _executor, lambda: cactus_embed(handle, query_text, True)
         )
         # Pull a generous top_k and then filter client-side — cheaper than
         # re-querying and lets us show every page above the threshold.
-        hits = _rag_index.search(vec, top_k=10)
+        hits = _rag_index.search(
+            vec,
+            top_k=10,
+            make=turn_make,
+            model=turn_model,
+        )
         if not hits:
             logger.info("RAG: no hits")
             return
@@ -843,7 +918,7 @@ class _CactusSession:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _rag_index
+    global _rag_index, _vehicle_catalog
     if not _CACTUS_AVAILABLE:
         logger.error(
             "Cactus library unavailable — WebSocket connections will be rejected."
@@ -867,6 +942,13 @@ async def lifespan(app: FastAPI):
                     )
             except Exception as exc:
                 logger.warning(f"Failed to open RAG index: {exc}")
+
+        if _load_vehicle_catalog is not None:
+            try:
+                from pathlib import Path as _Path
+                _vehicle_catalog = _load_vehicle_catalog(_Path(_DOCS_DIR))
+            except Exception as exc:
+                logger.warning(f"Failed to load vehicle catalog: {exc}")
 
     # Pre-warm Kokoro so the first user sentence doesn't pay the pipeline
     # init + first-inference cold-start cost (~1–3s on Mac CPU). Run in a

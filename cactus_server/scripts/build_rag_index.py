@@ -45,7 +45,58 @@ SERVER_DIR = HERE.parent
 DEFAULT_DOCS_DIR = SERVER_DIR / "docs"
 DEFAULT_QDRANT_DIR = SERVER_DIR / "qdrant_data"
 DEFAULT_PAGES_SUBDIR = "pages"
+DEFAULT_MANIFEST_NAME = "manifest.yaml"
 COLLECTION = "pages"
+
+
+# ---------------------------------------------------------------------------
+# Per-PDF metadata (docs/manifest.yaml) — drives vehicle-aware RAG filtering
+# ---------------------------------------------------------------------------
+
+def _load_manifest_metadata(docs_dir: Path) -> Dict[str, Dict[str, Any]]:
+    """Return {filename: {make, model, year, display, aliases}} from manifest.yaml.
+
+    Missing manifest is non-fatal — PDFs without metadata are still indexed,
+    they just can't be vehicle-filtered.
+    """
+    manifest_path = docs_dir / DEFAULT_MANIFEST_NAME
+    if not manifest_path.exists():
+        logger.warning(
+            f"No {DEFAULT_MANIFEST_NAME} at {manifest_path} — PDFs will be "
+            "indexed without vehicle metadata and cannot be filtered by make/model."
+        )
+        return {}
+
+    try:
+        import yaml  # pulled in transitively by docling
+    except ImportError:
+        logger.error(
+            f"{DEFAULT_MANIFEST_NAME} found but PyYAML is not installed — "
+            "install pyyaml or delete the manifest to proceed."
+        )
+        return {}
+
+    try:
+        raw = yaml.safe_load(manifest_path.read_text()) or {}
+    except Exception as exc:
+        logger.error(f"Failed to parse {manifest_path}: {exc}")
+        return {}
+
+    entries = raw.get("entries") or []
+    out: Dict[str, Dict[str, Any]] = {}
+    for entry in entries:
+        fname = entry.get("file")
+        if not fname:
+            continue
+        out[fname] = {
+            "make": (entry.get("make") or "").lower() or None,
+            "model": (entry.get("model") or "").lower() or None,
+            "year": entry.get("year"),
+            "display": entry.get("display"),
+            "aliases": entry.get("aliases") or [],
+        }
+    logger.info(f"Loaded vehicle metadata for {len(out)} PDFs from {manifest_path.name}")
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +236,8 @@ def build(
         logger.warning(f"No PDFs found in {docs_dir}")
         return 0
 
+    vehicle_meta = _load_manifest_metadata(docs_dir)
+
     pages_out_dir = qdrant_dir / DEFAULT_PAGES_SUBDIR
     qdrant_dir.mkdir(parents=True, exist_ok=True)
     client = QdrantClient(path=str(qdrant_dir))
@@ -222,17 +275,27 @@ def build(
                 raise RuntimeError(
                     f"Embedding dim mismatch: got {len(vec)}, expected {dim}"
                 )
+            meta = vehicle_meta.get(pdf.name, {})
+            payload: Dict[str, Any] = {
+                "source": pdf.name,
+                "page": page["page_no"],
+                "image_path": page["image_path"],
+                "doc_hash": fingerprint,
+                "text_preview": text[:240],
+            }
+            if meta.get("make"):
+                payload["make"] = meta["make"]
+            if meta.get("model"):
+                payload["model"] = meta["model"]
+            if meta.get("year") is not None:
+                payload["year"] = int(meta["year"])
+            if meta.get("display"):
+                payload["display"] = meta["display"]
             points.append(
                 PointStruct(
                     id=_point_id(fingerprint, page["page_no"]),
                     vector=vec,
-                    payload={
-                        "source": pdf.name,
-                        "page": page["page_no"],
-                        "image_path": page["image_path"],
-                        "doc_hash": fingerprint,
-                        "text_preview": text[:240],
-                    },
+                    payload=payload,
                 )
             )
 

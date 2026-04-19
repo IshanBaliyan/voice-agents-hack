@@ -1,0 +1,140 @@
+# Per-PDF metadata used by scripts/build_rag_index.py and rag_index.py.
+#
+# `make` and `model` are stored in the Qdrant payload as lowercase strings
+# with no spaces/dashes (e.g. "f-150" -> "f150", "grand cherokee" -> "grandcherokee")
+# so retrieval filters can match voice input like "I have a 2018 Toyota Camry"
+# after the same normalization is applied.
+#
+# Fields:
+#   file     — PDF filename inside cactus_server/docs/ (required, unique)
+#   make     — normalized lowercase make (required)
+#   model    — normalized lowercase model (required)
+#   year     — integer model year, or null if unknown
+#   display  — human-readable label (shown in logs / iOS UI)
+#   aliases  — optional extra tokens that should match this entry when heard
+#              in speech (e.g. "f-one-fifty", "crv" vs "cr-v")
+
+entries:
+  - file: vw_jetta.pdf
+    make: volkswagen
+    model: jetta
+    year: 2011
+    display: "2011 Volkswagen Jetta"
+    aliases: [vw]
+
+  - file: 2023_ford_f150.pdf
+    make: ford
+    model: f150
+    year: 2023
+    display: "2023 Ford F-150"
+    aliases: ["f-150"]
+
+  - file: 2023_ford_explorer.pdf
+    make: ford
+    model: explorer
+    year: 2023
+    display: "2023 Ford Explorer"
+
+  - file: 2024_chevy_silverado1500.pdf
+    make: chevrolet
+    model: silverado1500
+    year: 2024
+    display: "2024 Chevrolet Silverado 1500"
+    aliases: [chevy, "silverado 1500", silverado]
+
+  - file: 2023_chevy_equinox.pdf
+    make: chevrolet
+    model: equinox
+    year: 2023
+    display: "2023 Chevrolet Equinox"
+    aliases: [chevy]
+
+  - file: 2023_gmc_sierra1500.pdf
+    make: gmc
+    model: sierra1500
+    year: 2023
+    display: "2023 GMC Sierra 1500"
+    aliases: ["sierra 1500", sierra]
+
+  - file: 2023_ram_1500.pdf
+    make: ram
+    model: "1500"
+    year: 2023
+    display: "2023 RAM 1500"
+    aliases: ["ram 1500"]
+
+  - file: 2023_jeep_grand_cherokee.pdf
+    make: jeep
+    model: grandcherokee
+    year: 2023
+    display: "2023 Jeep Grand Cherokee"
+    aliases: ["grand cherokee"]
+
+  - file: 2023_toyota_rav4.pdf
+    make: toyota
+    model: rav4
+    year: 2023
+    display: "2023 Toyota RAV4"
+    aliases: ["rav 4", "rav-4"]
+
+  - file: 2023_toyota_camry.pdf
+    make: toyota
+    model: camry
+    year: 2023
+    display: "2023 Toyota Camry"
+
+  - file: 2023_toyota_corolla.pdf
+    make: toyota
+    model: corolla
+    year: 2023
+    display: "2023 Toyota Corolla"
+
+  - file: 2023_toyota_tacoma.pdf
+    make: toyota
+    model: tacoma
+    year: 2023
+    display: "2023 Toyota Tacoma"
+
+  - file: 2023_honda_crv.pdf
+    make: honda
+    model: crv
+    year: 2023
+    display: "2023 Honda CR-V"
+    aliases: ["cr-v", "cr v"]
+
+  - file: 2023_honda_civic.pdf
+    make: honda
+    model: civic
+    year: 2023
+    display: "2023 Honda Civic"
+
+  - file: 2023_honda_accord.pdf
+    make: honda
+    model: accord
+    year: 2023
+    display: "2023 Honda Accord"
+
+  - file: 2023_nissan_rogue.pdf
+    make: nissan
+    model: rogue
+    year: 2023
+    display: "2023 Nissan Rogue"
+
+  - file: 2023_hyundai_tucson.pdf
+    make: hyundai
+    model: tucson
+    year: 2023
+    display: "2023 Hyundai Tucson"
+
+  - file: 2023_mazda_cx5.pdf
+    make: mazda
+    model: cx5
+    year: 2023
+    display: "2023 Mazda CX-5"
+    aliases: ["cx-5", "cx 5"]
+
+  - file: 2023_subaru_outback.pdf
+    make: subaru
+    model: outback
+    year: 2023
+    display: "2023 Subaru Outback"
