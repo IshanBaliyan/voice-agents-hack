@@ -77,6 +77,20 @@ final class OttoStore: ObservableObject {
         }
     }
 
+    /// Clear the live voice session and return to a clean idle state. Used by
+    /// the "Not now" chip in the speaking hand-off and anywhere else we want
+    /// the user to start over from scratch. Does NOT touch persistent history
+    /// (that's kept in HistoryStore) — only in-memory conversation context.
+    func resetSession() {
+        speaker.stop()
+        recognizer.stop()
+        partialTranscript = ""
+        currentAnswer = ""
+        history.removeAll()
+        error = nil
+        voice = .idle
+    }
+
     private func beginListening() async {
         let ok = await recognizer.requestAuthorization()
         guard ok else { error = "Microphone or speech permission denied."; return }

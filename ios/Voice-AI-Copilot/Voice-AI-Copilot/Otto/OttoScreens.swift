@@ -161,30 +161,26 @@ struct ActiveSessionView: View {
                 statusBadge
                     .padding(.top, 8)
 
-                Spacer(minLength: 16)
+                // Snapchat-style live camera viewport fills the middle area.
+                // Transcript + waveform are overlaid on the bottom half with a
+                // readability scrim so they stay legible on any camera content.
+                cameraViewport
+                    .padding(.horizontal, 14)
+                    .padding(.top, 12)
+                    .frame(maxHeight: .infinity)
 
-                Button { store.tapMic() } label: {
-                    BreathingOrb(state: store.voice, size: orbSize)
+                // Floating mic — docked bottom-right above the nav bar.
+                HStack {
+                    Spacer()
+                    Button { store.tapMic() } label: {
+                        BreathingOrb(state: store.voice, size: orbSize)
+                            .frame(width: orbSize * 1.9, height: orbSize * 1.9)
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
-
-                Spacer(minLength: 16)
-
-                transcriptBlock
-                    .padding(.horizontal, 24)
-
-                if store.voice == .listening {
-                    OttoWaveLine(color: OttoColor.fog2, active: true, width: 240, height: 28)
-                        .padding(.top, 18)
-                }
-
-                if store.voice == .speaking {
-                    speakingActions
-                        .padding(.horizontal, 22)
-                        .padding(.top, 18)
-                }
-
-                Spacer(minLength: 12)
+                .padding(.trailing, 18)
+                .padding(.bottom, 6)
 
                 GlassNavBar(highlighted: .home) { ottoNav($0, store: store) }
                     .padding(.horizontal, 22)
@@ -193,12 +189,49 @@ struct ActiveSessionView: View {
         }
     }
 
-    private var orbSize: CGFloat {
-        switch store.voice {
-        case .speaking: return 180
-        default:        return 220
+    @ViewBuilder
+    private var cameraViewport: some View {
+        ZStack(alignment: .bottom) {
+            #if os(iOS)
+            SessionCameraBackdrop()
+            #else
+            Color.black
+            #endif
+
+            // Bottom-up scrim so overlay text stays readable on bright scenes.
+            LinearGradient(
+                colors: [.clear, .clear, Color.black.opacity(0.55)],
+                startPoint: .top, endPoint: .bottom
+            )
+            .allowsHitTesting(false)
+
+            // Transcript + waveform overlaid on the lower portion of the
+            // camera card. Gives the feed breathing room up top, like
+            // Snapchat's viewfinder with captions on the bottom.
+            VStack(spacing: 14) {
+                transcriptBlock
+                    .padding(.horizontal, 20)
+
+                if store.voice == .listening {
+                    OttoWaveLine(color: OttoColor.fog2, active: true, width: 240, height: 28)
+                }
+
+                if store.voice == .speaking {
+                    speakingActions
+                        .padding(.horizontal, 20)
+                }
+            }
+            .padding(.bottom, 22)
         }
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(OttoColor.fog3.opacity(0.15), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.55), radius: 28, x: 0, y: 16)
     }
+
+    private var orbSize: CGFloat { 54 }   // nav-bar icon pill (44) + ~20%
 
     @ViewBuilder
     private var statusBadge: some View {
@@ -281,7 +314,7 @@ struct ActiveSessionView: View {
             }
             .buttonStyle(.plain)
 
-            Button { /* dismiss — already speaking, this is a soft "no thanks" */ } label: {
+            Button { store.resetSession() } label: {
                 OttoChip(text: "Not now")
             }
             .buttonStyle(.plain)
