@@ -258,6 +258,20 @@ def _cleanup_files(paths: List[str]) -> None:
             pass
 
 
+from . import kokoro_tts
+
+# Matches a sentence-terminating punctuation mark followed by whitespace /
+# end-of-string. Used to flush chunks to the Kokoro TTS worker so audio can
+# start playing on the client before the full response is decoded.
+_SENTENCE_BOUNDARY = re.compile(r"[\.!\?](?:\s|$)")
+
+# Dedicated pool for Kokoro synthesis. With >1 worker, sentence N+1 begins
+# synthesising while sentence N is still being transmitted; the per-session
+# TTS worker awaits futures in enqueue order so audio on the wire stays
+# in the right sequence.
+_kokoro_executor = ThreadPoolExecutor(max_workers=3, thread_name_prefix="kokoro")
+
+
 def _log_cactus_debug(result: Dict[str, Any]) -> None:
     """Log timing / token-usage stats from a cactus_complete response."""
     if not isinstance(result, dict):
@@ -304,10 +318,94 @@ class _CactusSession:
         ]
         self._processing_task: Optional[asyncio.Task] = None
 
+        # Per-turn sentence-level TTS streaming state.  `_pending_tts_text`
+        # accumulates decoded tokens until we hit a sentence terminator; the
+        # complete chunk is then pushed onto `_tts_queue`, where a worker
+        # task synthesises it with Kokoro and emits a `type:audio` frame.
+        self._pending_tts_text: str = ""
+        self._tts_queue: asyncio.Queue = asyncio.Queue()
+        self._tts_worker_task: Optional[asyncio.Task] = None
+
     def start(self) -> None:
         self._processing_task = asyncio.create_task(
             self._processing_loop(), name="cactus_session_loop"
         )
+
+    # ------------------------------------------------------------------
+    # Sentence-level Kokoro TTS streaming
+    # ------------------------------------------------------------------
+
+    def _submit_sentence(self, sentence: str) -> None:
+        """Kick off Kokoro synthesis *immediately* and enqueue the in-flight
+        future for the worker to pick up in order."""
+        if not sentence:
+            return
+        future = _kokoro_executor.submit(kokoro_tts.synthesize_pcm16, sentence)
+        self._tts_queue.put_nowait((sentence, future))
+
+    def _append_streamed_text(self, delta: str) -> None:
+        """
+        Runs on the asyncio loop thread. Appends a newly decoded token to the
+        pending TTS buffer and fires Kokoro synthesis as soon as a complete
+        sentence has arrived. Synthesis runs in parallel across sentences;
+        the TTS worker serialises them back onto the wire in order.
+        """
+        self._pending_tts_text += delta
+        while True:
+            m = _SENTENCE_BOUNDARY.search(self._pending_tts_text)
+            if not m:
+                break
+            end = m.end()
+            sentence = self._pending_tts_text[:end].strip()
+            self._pending_tts_text = self._pending_tts_text[end:]
+            self._submit_sentence(sentence)
+
+    def _flush_remaining_tts(self) -> None:
+        """Flush any trailing non-sentence text at end of turn."""
+        leftover = self._pending_tts_text.strip()
+        self._pending_tts_text = ""
+        self._submit_sentence(leftover)
+
+    async def _tts_worker(self) -> None:
+        """
+        Per-turn worker: dequeues (sentence, future) pairs — synthesis has
+        already been kicked off in the Kokoro pool. We await each future
+        in enqueue order and push a `type:audio` frame per sentence so the
+        client can start playing before Gemma finishes decoding. Sentinel
+        `None` ends the worker for the current turn.
+        """
+        loop = asyncio.get_running_loop()
+        while True:
+            item = await self._tts_queue.get()
+            if item is None:
+                return
+            sentence, future = item
+            t0 = time.monotonic()
+            try:
+                pcm = await asyncio.wrap_future(future, loop=loop)
+            except Exception as exc:
+                logger.error(f"Kokoro worker future errored for {sentence!r}: {exc}")
+                pcm = None
+            dt_ms = (time.monotonic() - t0) * 1000
+            if pcm:
+                logger.info(
+                    f"Kokoro TTS: {len(pcm):,} bytes, waited {dt_ms:.0f} ms "
+                    f"for {sentence!r}"
+                )
+                await self._response_queue.put({
+                    "timestamp": int(time.time() * 1000),
+                    "type": "audio",
+                    "data": base64.b64encode(pcm).decode(),
+                })
+            else:
+                logger.warning(
+                    f"Kokoro TTS failed, falling back to text for {sentence!r}"
+                )
+                await self._response_queue.put({
+                    "timestamp": int(time.time() * 1000),
+                    "type": "text",
+                    "data": base64.b64encode(sentence.encode()).decode(),
+                })
 
     async def stop(self) -> None:
         if self._processing_task and not self._processing_task.done():
@@ -471,14 +569,24 @@ class _CactusSession:
             handle = self._handle
             pcm_for_complete = pcm_data
 
-            # Token streaming: cactus_complete invokes on_token from the worker
-            # thread as each token is decoded. We hop back to the event loop
-            # via call_soon_threadsafe and push a {"type":"token", ...} frame
-            # into the response queue so the relay → iOS client sees partial
-            # text immediately, before the final TTS audio blob arrives.
+            # Token streaming: cactus_complete invokes on_token from the
+            # worker thread as each token is decoded. We hop back to the
+            # event loop via call_soon_threadsafe to (1) push a
+            # {"type":"token", ...} frame for live text display and (2)
+            # feed the token into the sentence-level Kokoro TTS pipeline
+            # so the client starts hearing audio well before decoding ends.
             response_loop = asyncio.get_running_loop()
             response_queue = self._response_queue
             stream_started = time.monotonic()
+
+            # Reset per-turn TTS state and start the TTS worker task.
+            self._pending_tts_text = ""
+            self._tts_queue = asyncio.Queue()
+            self._tts_worker_task = asyncio.create_task(
+                self._tts_worker(), name="kokoro_tts_worker"
+            )
+
+            session = self
 
             def on_token(token: str, _token_id: int) -> None:
                 if not token:
@@ -489,6 +597,9 @@ class _CactusSession:
                     "data": base64.b64encode(token.encode("utf-8")).decode(),
                 }
                 response_loop.call_soon_threadsafe(response_queue.put_nowait, msg)
+                response_loop.call_soon_threadsafe(
+                    session._append_streamed_text, token
+                )
 
             raw_json = await loop.run_in_executor(
                 _executor,
@@ -500,6 +611,16 @@ class _CactusSession:
                 f"Streaming inference finished in "
                 f"{(time.monotonic() - stream_started) * 1000:.0f} ms"
             )
+
+            # Flush any trailing fragment and signal the TTS worker to
+            # finish once the queue has drained.
+            self._flush_remaining_tts()
+            self._tts_queue.put_nowait(None)
+            try:
+                await self._tts_worker_task
+            except Exception as exc:
+                logger.error(f"TTS worker errored: {exc}")
+            self._tts_worker_task = None
             result = json.loads(raw_json)
             _log_cactus_debug(result)
             if not result.get("success"):
@@ -518,28 +639,8 @@ class _CactusSession:
             return
 
         self._conversation.append({"role": "assistant", "content": response_text})
-
-        # TTS → PCM16 (runs in default thread pool, not the Cactus executor)
-        logger.info("Running TTS…")
-        timestamp = int(time.time() * 1000)
-        pcm_response = await loop.run_in_executor(
-            None, lambda: _tts_to_pcm16(response_text)
-        )
-
-        if pcm_response:
-            logger.info(f"TTS OK ({len(pcm_response):,} bytes) — sending audio")
-            await self._response_queue.put({
-                "timestamp": timestamp,
-                "type": "audio",
-                "data": base64.b64encode(pcm_response).decode(),
-            })
-        else:
-            logger.warning("TTS failed — sending text fallback")
-            await self._response_queue.put({
-                "timestamp": timestamp,
-                "type": "text",
-                "data": base64.b64encode(response_text.encode()).decode(),
-            })
+        # Audio has already been streamed sentence-by-sentence via the
+        # Kokoro TTS worker during decoding — no bulk TTS step needed here.
 
     def _trim_conversation(self) -> None:
         system_msgs = [m for m in self._conversation if m["role"] == "system"]
