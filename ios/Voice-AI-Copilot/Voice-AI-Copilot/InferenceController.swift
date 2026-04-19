@@ -101,14 +101,22 @@ final class InferenceController: ObservableObject {
     // enough to trigger SwiftUI view updates.
     private func rebind() {
         bag.removeAll()
-        // objectWillChange is a concrete ObservableObjectPublisher on each
-        // engine; `any ObservableObject` would erase it, so branch on mode.
-        let publisher = (mode == .local)
-            ? local.objectWillChange
-            : remote.objectWillChange
-        publisher
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.objectWillChange.send() }
-            .store(in: &bag)
+        // Subscribe to whichever backend is active. Using two separate sinks
+        // (rather than a ternary) avoids a type-inference quirk where the
+        // compiler fails to unify the two engines' ObservableObjectPublisher
+        // operands via `any ObservableObject`.
+        let forward: () -> Void = { [weak self] in self?.objectWillChange.send() }
+        switch mode {
+        case .local:
+            local.objectWillChange
+                .receive(on: RunLoop.main)
+                .sink { _ in forward() }
+                .store(in: &bag)
+        case .remote:
+            remote.objectWillChange
+                .receive(on: RunLoop.main)
+                .sink { _ in forward() }
+                .store(in: &bag)
+        }
     }
 }

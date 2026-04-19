@@ -40,8 +40,11 @@ final class OttoStore: ObservableObject {
     private var modelReady = false
     private var recognizerBag: [AnyCancellable] = []
 
-    init(engine: InferenceController = InferenceController()) {
-        self.engine = engine
+    init() {
+        // Placeholder controller — replaced when OttoRootView.task calls
+        // attach(engine:) with the real environment-injected one. Default-arg
+        // init() can't construct a @MainActor type from a non-isolated context.
+        self.engine = InferenceController()
         recognizer.$transcript
             .receive(on: RunLoop.main)
             .sink { [weak self] t in self?.partialTranscript = t }

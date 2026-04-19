@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import os
 
 // WebSocket-backed inference engine. Mirrors CactusEngine's public API so it
