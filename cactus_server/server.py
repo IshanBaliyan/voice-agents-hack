@@ -463,7 +463,11 @@ class _CactusSession:
 
         response_text = ""
         try:
-            options_json = json.dumps({"max_tokens": 512, "temperature": 0.7})
+            options_json = json.dumps({
+                "max_tokens": 512,
+                "temperature": 0.7,
+                "auto_handoff": False,
+            })
             handle = self._handle
             pcm_for_complete = pcm_data
 
