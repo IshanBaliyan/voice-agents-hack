@@ -1,0 +1,552 @@
+{
+  "engine": "Disassembled V8 Engine Block (Tomaso)",
+  "source": "https://sketchfab.com/3d-models/disassembled-v8-engine-block-3026bd87ca3945d6829d24c86ce695f0",
+  "file": "v8-block-disassembled.glb",
+  "frame_range": [
+    1,
+    60
+  ],
+  "fps": 30,
+  "parts": [
+    {
+      "id": "Object_158",
+      "sub": "Imported",
+      "display": "Object_158",
+      "aliases": []
+    },
+    {
+      "id": "Object_59",
+      "sub": "Imported",
+      "display": "Object_59",
+      "aliases": []
+    },
+    {
+      "id": "Object_10",
+      "sub": "Imported",
+      "display": "Object_10",
+      "aliases": []
+    },
+    {
+      "id": "Object_61",
+      "sub": "Imported",
+      "display": "Object_61",
+      "aliases": []
+    },
+    {
+      "id": "Object_48",
+      "sub": "Imported",
+      "display": "Object_48",
+      "aliases": []
+    },
+    {
+      "id": "Object_115",
+      "sub": "Imported",
+      "display": "Object_115",
+      "aliases": []
+    },
+    {
+      "id": "Object_126",
+      "sub": "Imported",
+      "display": "Object_126",
+      "aliases": []
+    },
+    {
+      "id": "Object_42",
+      "sub": "Imported",
+      "display": "Object_42",
+      "aliases": []
+    },
+    {
+      "id": "Object_14",
+      "sub": "Imported",
+      "display": "Object_14",
+      "aliases": []
+    },
+    {
+      "id": "Object_134",
+      "sub": "Imported",
+      "display": "Object_134",
+      "aliases": []
+    },
+    {
+      "id": "Object_106",
+      "sub": "Imported",
+      "display": "Object_106",
+      "aliases": []
+    },
+    {
+      "id": "Object_102",
+      "sub": "Imported",
+      "display": "Object_102",
+      "aliases": []
+    },
+    {
+      "id": "Object_24",
+      "sub": "Imported",
+      "display": "Object_24",
+      "aliases": []
+    },
+    {
+      "id": "Object_32",
+      "sub": "Imported",
+      "display": "Object_32",
+      "aliases": []
+    },
+    {
+      "id": "Object_44",
+      "sub": "Imported",
+      "display": "Object_44",
+      "aliases": []
+    },
+    {
+      "id": "Object_73",
+      "sub": "Imported",
+      "display": "Object_73",
+      "aliases": []
+    },
+    {
+      "id": "Object_104",
+      "sub": "Imported",
+      "display": "Object_104",
+      "aliases": []
+    },
+    {
+      "id": "Object_97",
+      "sub": "Imported",
+      "display": "Object_97",
+      "aliases": []
+    },
+    {
+      "id": "Object_76",
+      "sub": "Imported",
+      "display": "Object_76",
+      "aliases": []
+    },
+    {
+      "id": "Object_81",
+      "sub": "Imported",
+      "display": "Object_81",
+      "aliases": []
+    },
+    {
+      "id": "Object_109",
+      "sub": "Imported",
+      "display": "Object_109",
+      "aliases": []
+    },
+    {
+      "id": "Object_18",
+      "sub": "Imported",
+      "display": "Object_18",
+      "aliases": []
+    },
+    {
+      "id": "Object_34",
+      "sub": "Imported",
+      "display": "Object_34",
+      "aliases": []
+    },
+    {
+      "id": "Object_110",
+      "sub": "Imported",
+      "display": "Object_110",
+      "aliases": []
+    },
+    {
+      "id": "Object_95",
+      "sub": "Imported",
+      "display": "Object_95",
+      "aliases": []
+    },
+    {
+      "id": "Object_12",
+      "sub": "Imported",
+      "display": "Object_12",
+      "aliases": []
+    },
+    {
+      "id": "Object_28",
+      "sub": "Imported",
+      "display": "Object_28",
+      "aliases": []
+    },
+    {
+      "id": "Object_148",
+      "sub": "Imported",
+      "display": "Object_148",
+      "aliases": []
+    },
+    {
+      "id": "Object_142",
+      "sub": "Imported",
+      "display": "Object_142",
+      "aliases": []
+    },
+    {
+      "id": "Object_4.001",
+      "sub": "Imported",
+      "display": "Object_4.001",
+      "aliases": []
+    },
+    {
+      "id": "Object_87",
+      "sub": "Imported",
+      "display": "Object_87",
+      "aliases": []
+    },
+    {
+      "id": "Object_8",
+      "sub": "Imported",
+      "display": "Object_8",
+      "aliases": []
+    },
+    {
+      "id": "Object_105",
+      "sub": "Imported",
+      "display": "Object_105",
+      "aliases": []
+    },
+    {
+      "id": "Object_7",
+      "sub": "Imported",
+      "display": "Object_7",
+      "aliases": []
+    },
+    {
+      "id": "Object_119",
+      "sub": "Imported",
+      "display": "Object_119",
+      "aliases": []
+    },
+    {
+      "id": "Object_30",
+      "sub": "Imported",
+      "display": "Object_30",
+      "aliases": []
+    },
+    {
+      "id": "Object_16",
+      "sub": "Imported",
+      "display": "Object_16",
+      "aliases": []
+    },
+    {
+      "id": "Object_130",
+      "sub": "Imported",
+      "display": "Object_130",
+      "aliases": []
+    },
+    {
+      "id": "Object_160",
+      "sub": "Imported",
+      "display": "Object_160",
+      "aliases": []
+    },
+    {
+      "id": "Object_116",
+      "sub": "Imported",
+      "display": "Object_116",
+      "aliases": []
+    },
+    {
+      "id": "Object_5",
+      "sub": "Imported",
+      "display": "Object_5",
+      "aliases": []
+    },
+    {
+      "id": "Object_154",
+      "sub": "Imported",
+      "display": "Object_154",
+      "aliases": []
+    },
+    {
+      "id": "Object_118",
+      "sub": "Imported",
+      "display": "Object_118",
+      "aliases": []
+    },
+    {
+      "id": "Object_57",
+      "sub": "Imported",
+      "display": "Object_57",
+      "aliases": []
+    },
+    {
+      "id": "Object_112",
+      "sub": "Imported",
+      "display": "Object_112",
+      "aliases": []
+    },
+    {
+      "id": "Object_114",
+      "sub": "Imported",
+      "display": "Object_114",
+      "aliases": []
+    },
+    {
+      "id": "Object_132",
+      "sub": "Imported",
+      "display": "Object_132",
+      "aliases": []
+    },
+    {
+      "id": "Object_156",
+      "sub": "Imported",
+      "display": "Object_156",
+      "aliases": []
+    },
+    {
+      "id": "Object_146",
+      "sub": "Imported",
+      "display": "Object_146",
+      "aliases": []
+    },
+    {
+      "id": "Object_67",
+      "sub": "Imported",
+      "display": "Object_67",
+      "aliases": []
+    },
+    {
+      "id": "Object_101",
+      "sub": "Imported",
+      "display": "Object_101",
+      "aliases": []
+    },
+    {
+      "id": "Object_108",
+      "sub": "Imported",
+      "display": "Object_108",
+      "aliases": []
+    },
+    {
+      "id": "Object_86",
+      "sub": "Imported",
+      "display": "Object_86",
+      "aliases": []
+    },
+    {
+      "id": "Object_26",
+      "sub": "Imported",
+      "display": "Object_26",
+      "aliases": []
+    },
+    {
+      "id": "Object_152",
+      "sub": "Imported",
+      "display": "Object_152",
+      "aliases": []
+    },
+    {
+      "id": "Object_124",
+      "sub": "Imported",
+      "display": "Object_124",
+      "aliases": []
+    },
+    {
+      "id": "Object_140",
+      "sub": "Imported",
+      "display": "Object_140",
+      "aliases": []
+    },
+    {
+      "id": "Object_128",
+      "sub": "Imported",
+      "display": "Object_128",
+      "aliases": []
+    },
+    {
+      "id": "Object_150",
+      "sub": "Imported",
+      "display": "Object_150",
+      "aliases": []
+    },
+    {
+      "id": "Object_22",
+      "sub": "Imported",
+      "display": "Object_22",
+      "aliases": []
+    },
+    {
+      "id": "Object_52",
+      "sub": "Imported",
+      "display": "Object_52",
+      "aliases": []
+    },
+    {
+      "id": "Object_36",
+      "sub": "Imported",
+      "display": "Object_36",
+      "aliases": []
+    },
+    {
+      "id": "Object_20",
+      "sub": "Imported",
+      "display": "Object_20",
+      "aliases": []
+    },
+    {
+      "id": "Object_113",
+      "sub": "Imported",
+      "display": "Object_113",
+      "aliases": []
+    },
+    {
+      "id": "Object_138",
+      "sub": "Imported",
+      "display": "Object_138",
+      "aliases": []
+    },
+    {
+      "id": "Object_122",
+      "sub": "Imported",
+      "display": "Object_122",
+      "aliases": []
+    },
+    {
+      "id": "Object_93",
+      "sub": "Imported",
+      "display": "Object_93",
+      "aliases": []
+    },
+    {
+      "id": "Object_63",
+      "sub": "Imported",
+      "display": "Object_63",
+      "aliases": []
+    },
+    {
+      "id": "Object_71",
+      "sub": "Imported",
+      "display": "Object_71",
+      "aliases": []
+    },
+    {
+      "id": "Object_103",
+      "sub": "Imported",
+      "display": "Object_103",
+      "aliases": []
+    },
+    {
+      "id": "Object_69",
+      "sub": "Imported",
+      "display": "Object_69",
+      "aliases": []
+    },
+    {
+      "id": "Object_38",
+      "sub": "Imported",
+      "display": "Object_38",
+      "aliases": []
+    },
+    {
+      "id": "Object_120",
+      "sub": "Imported",
+      "display": "Object_120",
+      "aliases": []
+    },
+    {
+      "id": "Object_75",
+      "sub": "Imported",
+      "display": "Object_75",
+      "aliases": []
+    },
+    {
+      "id": "Object_136",
+      "sub": "Imported",
+      "display": "Object_136",
+      "aliases": []
+    },
+    {
+      "id": "Object_83",
+      "sub": "Imported",
+      "display": "Object_83",
+      "aliases": []
+    },
+    {
+      "id": "Object_85",
+      "sub": "Imported",
+      "display": "Object_85",
+      "aliases": []
+    },
+    {
+      "id": "Object_144",
+      "sub": "Imported",
+      "display": "Object_144",
+      "aliases": []
+    },
+    {
+      "id": "Object_50",
+      "sub": "Imported",
+      "display": "Object_50",
+      "aliases": []
+    },
+    {
+      "id": "Object_46",
+      "sub": "Imported",
+      "display": "Object_46",
+      "aliases": []
+    },
+    {
+      "id": "Object_78",
+      "sub": "Imported",
+      "display": "Object_78",
+      "aliases": []
+    },
+    {
+      "id": "Object_91",
+      "sub": "Imported",
+      "display": "Object_91",
+      "aliases": []
+    },
+    {
+      "id": "Object_89",
+      "sub": "Imported",
+      "display": "Object_89",
+      "aliases": []
+    },
+    {
+      "id": "Object_99",
+      "sub": "Imported",
+      "display": "Object_99",
+      "aliases": []
+    },
+    {
+      "id": "Object_54",
+      "sub": "Imported",
+      "display": "Object_54",
+      "aliases": []
+    },
+    {
+      "id": "Object_55",
+      "sub": "Imported",
+      "display": "Object_55",
+      "aliases": []
+    },
+    {
+      "id": "Object_65",
+      "sub": "Imported",
+      "display": "Object_65",
+      "aliases": []
+    },
+    {
+      "id": "Object_79",
+      "sub": "Imported",
+      "display": "Object_79",
+      "aliases": []
+    },
+    {
+      "id": "Object_82",
+      "sub": "Imported",
+      "display": "Object_82",
+      "aliases": []
+    },
+    {
+      "id": "Object_40",
+      "sub": "Imported",
+      "display": "Object_40",
+      "aliases": []
+    }
+  ]
+}

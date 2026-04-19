@@ -1,0 +1,30 @@
+{
+  "engine": "Nissan RB26DET",
+  "source": "https://sketchfab.com/3d-models/none-eed898bed9b2479e84fdb6f96bae7125",
+  "file": "rb26det.glb",
+  "frame_range": [
+    1,
+    60
+  ],
+  "fps": 30,
+  "parts": [
+    {
+      "id": "Object_3",
+      "sub": "Imported",
+      "display": "Object_3",
+      "aliases": []
+    },
+    {
+      "id": "Object_2.001",
+      "sub": "Imported",
+      "display": "Object_2.001",
+      "aliases": []
+    },
+    {
+      "id": "Object_4",
+      "sub": "Imported",
+      "display": "Object_4",
+      "aliases": []
+    }
+  ]
+}

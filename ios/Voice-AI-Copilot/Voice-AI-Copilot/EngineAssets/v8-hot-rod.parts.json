@@ -1,0 +1,102 @@
+{
+  "engine": "V8 Hot Rod",
+  "source": "https://sketchfab.com/3d-models/none-f20acef709b847eb98839b89c5ef916c",
+  "file": "v8-hot-rod.glb",
+  "frame_range": [
+    1,
+    60
+  ],
+  "fps": 30,
+  "parts": [
+    {
+      "id": "Cube_Material.004_0",
+      "sub": "Imported",
+      "display": "Cube_Material.004_0",
+      "aliases": []
+    },
+    {
+      "id": "Cylinder.004_Material.008_0",
+      "sub": "Imported",
+      "display": "Cylinder.004_Material.008_0",
+      "aliases": []
+    },
+    {
+      "id": "Cylinder.006_Material.004_0",
+      "sub": "Imported",
+      "display": "Cylinder.006_Material.004_0",
+      "aliases": []
+    },
+    {
+      "id": "Cube_Material.005_0",
+      "sub": "Imported",
+      "display": "Cube_Material.005_0",
+      "aliases": []
+    },
+    {
+      "id": "Cube_Chrome.001_0",
+      "sub": "Imported",
+      "display": "Cube_Chrome.001_0",
+      "aliases": []
+    },
+    {
+      "id": "Cylinder.003_Chrome.001_0",
+      "sub": "Imported",
+      "display": "Cylinder.003_Chrome.001_0",
+      "aliases": []
+    },
+    {
+      "id": "Fan.004_Chrome.001_0",
+      "sub": "Imported",
+      "display": "Fan.004_Chrome.001_0",
+      "aliases": []
+    },
+    {
+      "id": "Cylinder.003_Material.008_0",
+      "sub": "Imported",
+      "display": "Cylinder.003_Material.008_0",
+      "aliases": []
+    },
+    {
+      "id": "Cube_Material.003_0",
+      "sub": "Imported",
+      "display": "Cube_Material.003_0",
+      "aliases": []
+    },
+    {
+      "id": "Cube.001_Chrome.001_0",
+      "sub": "Imported",
+      "display": "Cube.001_Chrome.001_0",
+      "aliases": []
+    },
+    {
+      "id": "Gear_Material.007_0",
+      "sub": "Imported",
+      "display": "Gear_Material.007_0",
+      "aliases": []
+    },
+    {
+      "id": "Cylinder.004_Chrome.001_0",
+      "sub": "Imported",
+      "display": "Cylinder.004_Chrome.001_0",
+      "aliases": []
+    },
+    {
+      "id": "Cylinder.008_Chrome.001_0",
+      "sub": "Imported",
+      "display": "Cylinder.008_Chrome.001_0",
+      "aliases": []
+    },
+    {
+      "id": "Cube.001_Material.003_0",
+      "sub": "Imported",
+      "display": "Cube.001_Material.003_0",
+      "aliases": []
+    },
+    {
+      "id": "Cylinder.002_Material.001_0",
+      "sub": "Imported",
+      "display": "Cylinder.002_Material.001_0",
+      "aliases": []
+    }
+  ]
+}

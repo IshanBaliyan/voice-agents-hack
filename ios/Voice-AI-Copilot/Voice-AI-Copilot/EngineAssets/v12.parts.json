@@ -1,0 +1,996 @@
+{
+  "engine": "V12 Engine",
+  "source": "https://sketchfab.com/3d-models/none-623f6fc3f6fc4951b8de66580e0f4a2c",
+  "file": "v12.glb",
+  "frame_range": [
+    1,
+    60
+  ],
+  "fps": 30,
+  "parts": [
+    {
+      "id": "boot_ok_Rear Lights Housing_0",
+      "sub": "Imported",
+      "display": "boot_ok_Rear Lights Housing_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Right Wheel_Tire Valve_0",
+      "sub": "Imported",
+      "display": "Rear Right Wheel_Tire Valve_0",
+      "aliases": []
+    },
+    {
+      "id": "Glass_Glass_0",
+      "sub": "Imported",
+      "display": "Glass_Glass_0",
+      "aliases": []
+    },
+    {
+      "id": "Interior_Black_0",
+      "sub": "Imported",
+      "display": "Interior_Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Seats_Aluminium_0",
+      "sub": "Imported",
+      "display": "Seats_Aluminium_0",
+      "aliases": []
+    },
+    {
+      "id": "Interior Buttons_Gauges_0",
+      "sub": "Imported",
+      "display": "Interior Buttons_Gauges_0",
+      "aliases": []
+    },
+    {
+      "id": "Interior Stitching_Red_0",
+      "sub": "Imported",
+      "display": "Interior Stitching_Red_0",
+      "aliases": []
+    },
+    {
+      "id": "Interior Buttons_Screen_0",
+      "sub": "Imported",
+      "display": "Interior Buttons_Screen_0",
+      "aliases": []
+    },
+    {
+      "id": "boot_ok_Black Metal_0",
+      "sub": "Imported",
+      "display": "boot_ok_Black Metal_0",
+      "aliases": []
+    },
+    {
+      "id": "Right Door Glass_Badge_0",
+      "sub": "Imported",
+      "display": "Right Door Glass_Badge_0",
+      "aliases": []
+    },
+    {
+      "id": "Seats_Red_0",
+      "sub": "Imported",
+      "display": "Seats_Red_0",
+      "aliases": []
+    },
+    {
+      "id": "Interior_Aluminium_0",
+      "sub": "Imported",
+      "display": "Interior_Aluminium_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Left Wheel_Tire Treads_0",
+      "sub": "Imported",
+      "display": "Rear Left Wheel_Tire Treads_0",
+      "aliases": []
+    },
+    {
+      "id": "Lights_Right Indicator / Blinker_0",
+      "sub": "Imported",
+      "display": "Lights_Right Indicator / Blinker_0",
+      "aliases": []
+    },
+    {
+      "id": "Engine Bay_Black Metal_0",
+      "sub": "Imported",
+      "display": "Engine Bay_Black Metal_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Left Wheel_Tire Sidewall_0",
+      "sub": "Imported",
+      "display": "Front Left Wheel_Tire Sidewall_0",
+      "aliases": []
+    },
+    {
+      "id": "Hood_Chrome_0",
+      "sub": "Imported",
+      "display": "Hood_Chrome_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Bumper_Body Color_0",
+      "sub": "Imported",
+      "display": "Front Bumper_Body Color_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Bumper_Black_0",
+      "sub": "Imported",
+      "display": "Rear Bumper_Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Left Wheel_Badge_0",
+      "sub": "Imported",
+      "display": "Front Left Wheel_Badge_0",
+      "aliases": []
+    },
+    {
+      "id": "Right Door_Aluminium_0",
+      "sub": "Imported",
+      "display": "Right Door_Aluminium_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Right Wheel_Tire Sidewall_0",
+      "sub": "Imported",
+      "display": "Rear Right Wheel_Tire Sidewall_0",
+      "aliases": []
+    },
+    {
+      "id": "Interior_Leather_0",
+      "sub": "Imported",
+      "display": "Interior_Leather_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Right Wheel_Tire Valve_0",
+      "sub": "Imported",
+      "display": "Front Right Wheel_Tire Valve_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Bumper_Grille_0",
+      "sub": "Imported",
+      "display": "Front Bumper_Grille_0",
+      "aliases": []
+    },
+    {
+      "id": "5.2L Twin Turbo V12_Painted Black_0",
+      "sub": "Imported",
+      "display": "5.2L Twin Turbo V12_Painted Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Lights_Low Beams_0",
+      "sub": "Imported",
+      "display": "Lights_Low Beams_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Right Wheel_Painted Black_0",
+      "sub": "Imported",
+      "display": "Rear Right Wheel_Painted Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Interior Stitching_Stitch_0",
+      "sub": "Imported",
+      "display": "Interior Stitching_Stitch_0",
+      "aliases": []
+    },
+    {
+      "id": "Left Door_Mirror_0",
+      "sub": "Imported",
+      "display": "Left Door_Mirror_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Left Wheel_Tire Treads_0",
+      "sub": "Imported",
+      "display": "Front Left Wheel_Tire Treads_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Bumper_Glass_0",
+      "sub": "Imported",
+      "display": "Front Bumper_Glass_0",
+      "aliases": []
+    },
+    {
+      "id": "5.2L Twin Turbo V12_Aston Martin DB11 Signature_0",
+      "sub": "Imported",
+      "display": "5.2L Twin Turbo V12_Aston Martin DB11 Signature_0",
+      "aliases": []
+    },
+    {
+      "id": "Interior_Carpet_0",
+      "sub": "Imported",
+      "display": "Interior_Carpet_0",
+      "aliases": []
+    },
+    {
+      "id": "Chassis Bolts_Badge_0",
+      "sub": "Imported",
+      "display": "Chassis Bolts_Badge_0",
+      "aliases": []
+    },
+    {
+      "id": "Right Door_Leather_0",
+      "sub": "Imported",
+      "display": "Right Door_Leather_0",
+      "aliases": []
+    },
+    {
+      "id": "Seats_Leather_0",
+      "sub": "Imported",
+      "display": "Seats_Leather_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Bumper_Painted Black_0",
+      "sub": "Imported",
+      "display": "Front Bumper_Painted Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Interior_Alcantara_0",
+      "sub": "Imported",
+      "display": "Interior_Alcantara_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Left Wheel_Painted Black_0",
+      "sub": "Imported",
+      "display": "Front Left Wheel_Painted Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Steering Wheel_Stitch_0",
+      "sub": "Imported",
+      "display": "Steering Wheel_Stitch_0",
+      "aliases": []
+    },
+    {
+      "id": "Chassis_Black_0",
+      "sub": "Imported",
+      "display": "Chassis_Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Interior Stitching_Stitch 2_0",
+      "sub": "Imported",
+      "display": "Interior Stitching_Stitch 2_0",
+      "aliases": []
+    },
+    {
+      "id": "Steering Wheel_Badge_0",
+      "sub": "Imported",
+      "display": "Steering Wheel_Badge_0",
+      "aliases": []
+    },
+    {
+      "id": "Left Door_Black_0",
+      "sub": "Imported",
+      "display": "Left Door_Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Left Door_Aluminium_0",
+      "sub": "Imported",
+      "display": "Left Door_Aluminium_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Right Wheel_Brake Disc_0",
+      "sub": "Imported",
+      "display": "Rear Right Wheel_Brake Disc_0",
+      "aliases": []
+    },
+    {
+      "id": "5.2L Twin Turbo V12_Engine Yellow_0",
+      "sub": "Imported",
+      "display": "5.2L Twin Turbo V12_Engine Yellow_0",
+      "aliases": []
+    },
+    {
+      "id": "Lights_Aluminium_0",
+      "sub": "Imported",
+      "display": "Lights_Aluminium_0",
+      "aliases": []
+    },
+    {
+      "id": "Chassis_Dark Metal_0",
+      "sub": "Imported",
+      "display": "Chassis_Dark Metal_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Bumper_Brake Lights_0",
+      "sub": "Imported",
+      "display": "Rear Bumper_Brake Lights_0",
+      "aliases": []
+    },
+    {
+      "id": "Interior Stitching_Badge_0",
+      "sub": "Imported",
+      "display": "Interior Stitching_Badge_0",
+      "aliases": []
+    },
+    {
+      "id": "Right Door_Black_0",
+      "sub": "Imported",
+      "display": "Right Door_Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Right Door_Interior Trim_0",
+      "sub": "Imported",
+      "display": "Right Door_Interior Trim_0",
+      "aliases": []
+    },
+    {
+      "id": "Right Door_Body Color_0",
+      "sub": "Imported",
+      "display": "Right Door_Body Color_0",
+      "aliases": []
+    },
+    {
+      "id": "boot_ok_Reverse Lights_0",
+      "sub": "Imported",
+      "display": "boot_ok_Reverse Lights_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Exhaust TIps_Chrome_0",
+      "sub": "Imported",
+      "display": "Rear Exhaust TIps_Chrome_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Left Wheel_Badge_0",
+      "sub": "Imported",
+      "display": "Rear Left Wheel_Badge_0",
+      "aliases": []
+    },
+    {
+      "id": "Hood_Gray_0",
+      "sub": "Imported",
+      "display": "Hood_Gray_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Left Wheel_Rim White_0",
+      "sub": "Imported",
+      "display": "Rear Left Wheel_Rim White_0",
+      "aliases": []
+    },
+    {
+      "id": "Lights_Brake Lights_0",
+      "sub": "Imported",
+      "display": "Lights_Brake Lights_0",
+      "aliases": []
+    },
+    {
+      "id": "Left Door Glass_Glass_0",
+      "sub": "Imported",
+      "display": "Left Door Glass_Glass_0",
+      "aliases": []
+    },
+    {
+      "id": "Seats_Black_0",
+      "sub": "Imported",
+      "display": "Seats_Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Engine Bay_Misc_0",
+      "sub": "Imported",
+      "display": "Engine Bay_Misc_0",
+      "aliases": []
+    },
+    {
+      "id": "Chassis_Leather_0",
+      "sub": "Imported",
+      "display": "Chassis_Leather_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear License Plate_License Plate_0",
+      "sub": "Imported",
+      "display": "Rear License Plate_License Plate_0",
+      "aliases": []
+    },
+    {
+      "id": "Left Door Glass_Stitch_0",
+      "sub": "Imported",
+      "display": "Left Door Glass_Stitch_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Left Brake Caliper_Chassis_0",
+      "sub": "Imported",
+      "display": "Rear Left Brake Caliper_Chassis_0",
+      "aliases": []
+    },
+    {
+      "id": "5.2L Twin Turbo V12_Hoses_0",
+      "sub": "Imported",
+      "display": "5.2L Twin Turbo V12_Hoses_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Bumper_Left Indicator / Blinker_0",
+      "sub": "Imported",
+      "display": "Front Bumper_Left Indicator / Blinker_0",
+      "aliases": []
+    },
+    {
+      "id": "Interior Buttons_Interior Letterings [Buttons]_0",
+      "sub": "Imported",
+      "display": "Interior Buttons_Interior Letterings [Buttons]_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Bumper_Right Indicator / Blinker_0",
+      "sub": "Imported",
+      "display": "Rear Bumper_Right Indicator / Blinker_0",
+      "aliases": []
+    },
+    {
+      "id": "Steering Wheel_Stickers_0",
+      "sub": "Imported",
+      "display": "Steering Wheel_Stickers_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Exhaust TIps_Black_0",
+      "sub": "Imported",
+      "display": "Rear Exhaust TIps_Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Left Door_Interior Trim_0",
+      "sub": "Imported",
+      "display": "Left Door_Interior Trim_0",
+      "aliases": []
+    },
+    {
+      "id": "Lights_Left Indicator / Blinker_0",
+      "sub": "Imported",
+      "display": "Lights_Left Indicator / Blinker_0",
+      "aliases": []
+    },
+    {
+      "id": "Lights_High Beams_0",
+      "sub": "Imported",
+      "display": "Lights_High Beams_0",
+      "aliases": []
+    },
+    {
+      "id": "Engine Bay Bolts_Badge_0",
+      "sub": "Imported",
+      "display": "Engine Bay Bolts_Badge_0",
+      "aliases": []
+    },
+    {
+      "id": "Lights_Rear Lights Housing_0",
+      "sub": "Imported",
+      "display": "Lights_Rear Lights Housing_0",
+      "aliases": []
+    },
+    {
+      "id": "boot_ok_Badge_0",
+      "sub": "Imported",
+      "display": "boot_ok_Badge_0",
+      "aliases": []
+    },
+    {
+      "id": "Lights_Black_0",
+      "sub": "Imported",
+      "display": "Lights_Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Interior_Chrome_0",
+      "sub": "Imported",
+      "display": "Interior_Chrome_0",
+      "aliases": []
+    },
+    {
+      "id": "Interior_Headliner [any color you want]_0",
+      "sub": "Imported",
+      "display": "Interior_Headliner [any color you want]_0",
+      "aliases": []
+    },
+    {
+      "id": "Engine Badges_Stickers_0",
+      "sub": "Imported",
+      "display": "Engine Badges_Stickers_0",
+      "aliases": []
+    },
+    {
+      "id": "Hood_Body Color_0",
+      "sub": "Imported",
+      "display": "Hood_Body Color_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Bumper_Painted Black_0",
+      "sub": "Imported",
+      "display": "Rear Bumper_Painted Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Right Wheel_Badge_0",
+      "sub": "Imported",
+      "display": "Front Right Wheel_Badge_0",
+      "aliases": []
+    },
+    {
+      "id": "Left Door_Leather_0",
+      "sub": "Imported",
+      "display": "Left Door_Leather_0",
+      "aliases": []
+    },
+    {
+      "id": "boot_ok_Black_0",
+      "sub": "Imported",
+      "display": "boot_ok_Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Interior_Dashboard [Put any color you want, even leather]_0",
+      "sub": "Imported",
+      "display": "Interior_Dashboard [Put any color you want, even leather]_0",
+      "aliases": []
+    },
+    {
+      "id": "Lights_Day Lights_0",
+      "sub": "Imported",
+      "display": "Lights_Day Lights_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Left Wheel_Brake Disc_0",
+      "sub": "Imported",
+      "display": "Front Left Wheel_Brake Disc_0",
+      "aliases": []
+    },
+    {
+      "id": "Right Door_Mirror_0",
+      "sub": "Imported",
+      "display": "Right Door_Mirror_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Left Wheel_Brake Disc_0",
+      "sub": "Imported",
+      "display": "Rear Left Wheel_Brake Disc_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Right Wheel_Badge_0",
+      "sub": "Imported",
+      "display": "Rear Right Wheel_Badge_0",
+      "aliases": []
+    },
+    {
+      "id": "Interior_Black Metal_0",
+      "sub": "Imported",
+      "display": "Interior_Black Metal_0",
+      "aliases": []
+    },
+    {
+      "id": "Interior_Red_0",
+      "sub": "Imported",
+      "display": "Interior_Red_0",
+      "aliases": []
+    },
+    {
+      "id": "Right Door Buttons_Interior Letterings [Buttons]_0",
+      "sub": "Imported",
+      "display": "Right Door Buttons_Interior Letterings [Buttons]_0",
+      "aliases": []
+    },
+    {
+      "id": "Steering Wheel_Dark Metal_0",
+      "sub": "Imported",
+      "display": "Steering Wheel_Dark Metal_0",
+      "aliases": []
+    },
+    {
+      "id": "5.2L Twin Turbo V12_Hose Clamps_0",
+      "sub": "Imported",
+      "display": "5.2L Twin Turbo V12_Hose Clamps_0",
+      "aliases": []
+    },
+    {
+      "id": "Hood_Black Metal_0",
+      "sub": "Imported",
+      "display": "Hood_Black Metal_0",
+      "aliases": []
+    },
+    {
+      "id": "Hood_Painted Black_0",
+      "sub": "Imported",
+      "display": "Hood_Painted Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Lights_Taillights_0",
+      "sub": "Imported",
+      "display": "Lights_Taillights_0",
+      "aliases": []
+    },
+    {
+      "id": "Engine Bay_Stickers_0",
+      "sub": "Imported",
+      "display": "Engine Bay_Stickers_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Right Wheel_Tire Treads_0",
+      "sub": "Imported",
+      "display": "Front Right Wheel_Tire Treads_0",
+      "aliases": []
+    },
+    {
+      "id": "Lights_Painted Black_0",
+      "sub": "Imported",
+      "display": "Lights_Painted Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Trunk Taillight Glass_Lights Glass_0",
+      "sub": "Imported",
+      "display": "Trunk Taillight Glass_Lights Glass_0",
+      "aliases": []
+    },
+    {
+      "id": "Front License Plate_License Plate_0",
+      "sub": "Imported",
+      "display": "Front License Plate_License Plate_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Left Wheel_Painted Black_0",
+      "sub": "Imported",
+      "display": "Rear Left Wheel_Painted Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Bumper_Reverse Lights_0",
+      "sub": "Imported",
+      "display": "Rear Bumper_Reverse Lights_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Bumper_Black Metal_0",
+      "sub": "Imported",
+      "display": "Rear Bumper_Black Metal_0",
+      "aliases": []
+    },
+    {
+      "id": "Chassis_Painted Black_0",
+      "sub": "Imported",
+      "display": "Chassis_Painted Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Right Brake Caliper_Chassis_0",
+      "sub": "Imported",
+      "display": "Rear Right Brake Caliper_Chassis_0",
+      "aliases": []
+    },
+    {
+      "id": "5.2L Twin Turbo V12_Aluminium_0",
+      "sub": "Imported",
+      "display": "5.2L Twin Turbo V12_Aluminium_0",
+      "aliases": []
+    },
+    {
+      "id": "boot_ok_Leather_0",
+      "sub": "Imported",
+      "display": "boot_ok_Leather_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Left Brake Caliper_Chassis_0",
+      "sub": "Imported",
+      "display": "Front Left Brake Caliper_Chassis_0",
+      "aliases": []
+    },
+    {
+      "id": "Trunk Bolts_Badge_0",
+      "sub": "Imported",
+      "display": "Trunk Bolts_Badge_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Exhaust TIps_Black Metal_0",
+      "sub": "Imported",
+      "display": "Rear Exhaust TIps_Black Metal_0",
+      "aliases": []
+    },
+    {
+      "id": "Interior_Interior Trim_0",
+      "sub": "Imported",
+      "display": "Interior_Interior Trim_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Left Wheel_Tire Valve_0",
+      "sub": "Imported",
+      "display": "Front Left Wheel_Tire Valve_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Right Wheel_Brake Disc_0",
+      "sub": "Imported",
+      "display": "Front Right Wheel_Brake Disc_0",
+      "aliases": []
+    },
+    {
+      "id": "Engine Bay_Badge_0",
+      "sub": "Imported",
+      "display": "Engine Bay_Badge_0",
+      "aliases": []
+    },
+    {
+      "id": "Interior Stitching_Glass_0",
+      "sub": "Imported",
+      "display": "Interior Stitching_Glass_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Bumper_Splitter_0",
+      "sub": "Imported",
+      "display": "Front Bumper_Splitter_0",
+      "aliases": []
+    },
+    {
+      "id": "boot_ok_Painted Black_0",
+      "sub": "Imported",
+      "display": "boot_ok_Painted Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Right Wheel_Tire Treads_0",
+      "sub": "Imported",
+      "display": "Rear Right Wheel_Tire Treads_0",
+      "aliases": []
+    },
+    {
+      "id": "Spoiler_Body Color_0",
+      "sub": "Imported",
+      "display": "Spoiler_Body Color_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Left Wheel_Rim White_0",
+      "sub": "Imported",
+      "display": "Front Left Wheel_Rim White_0",
+      "aliases": []
+    },
+    {
+      "id": "Lights_Chrome_0",
+      "sub": "Imported",
+      "display": "Lights_Chrome_0",
+      "aliases": []
+    },
+    {
+      "id": "Left Door Buttons_Interior Letterings [Buttons]_0",
+      "sub": "Imported",
+      "display": "Left Door Buttons_Interior Letterings [Buttons]_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Left Wheel_Tire Valve_0",
+      "sub": "Imported",
+      "display": "Rear Left Wheel_Tire Valve_0",
+      "aliases": []
+    },
+    {
+      "id": "Left Door_Body Color_0",
+      "sub": "Imported",
+      "display": "Left Door_Body Color_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Bumper_Black_0",
+      "sub": "Imported",
+      "display": "Front Bumper_Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Hood_Grille_0",
+      "sub": "Imported",
+      "display": "Hood_Grille_0",
+      "aliases": []
+    },
+    {
+      "id": "Engine Bay_Engine Bay White_0",
+      "sub": "Imported",
+      "display": "Engine Bay_Engine Bay White_0",
+      "aliases": []
+    },
+    {
+      "id": "Hood_Badge_0",
+      "sub": "Imported",
+      "display": "Hood_Badge_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Right Wheel_Tire Sidewall_0",
+      "sub": "Imported",
+      "display": "Front Right Wheel_Tire Sidewall_0",
+      "aliases": []
+    },
+    {
+      "id": "Lights_Lights Glass_0",
+      "sub": "Imported",
+      "display": "Lights_Lights Glass_0",
+      "aliases": []
+    },
+    {
+      "id": "Left Door Glass_Badge_0",
+      "sub": "Imported",
+      "display": "Left Door Glass_Badge_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Bumper_Right Indicator / Blinker_0",
+      "sub": "Imported",
+      "display": "Front Bumper_Right Indicator / Blinker_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Bumper_Chrome_0",
+      "sub": "Imported",
+      "display": "Front Bumper_Chrome_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Bumper_Body Color_0",
+      "sub": "Imported",
+      "display": "Rear Bumper_Body Color_0",
+      "aliases": []
+    },
+    {
+      "id": "Right Door Glass_Glass_0",
+      "sub": "Imported",
+      "display": "Right Door Glass_Glass_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Bumper_Left Indicator / Blinker_0",
+      "sub": "Imported",
+      "display": "Rear Bumper_Left Indicator / Blinker_0",
+      "aliases": []
+    },
+    {
+      "id": "Engine Bay_Painted Black_0",
+      "sub": "Imported",
+      "display": "Engine Bay_Painted Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Steering Wheel_Interior Letterings [Buttons]_0",
+      "sub": "Imported",
+      "display": "Steering Wheel_Interior Letterings [Buttons]_0",
+      "aliases": []
+    },
+    {
+      "id": "boot_ok_Body Color_0",
+      "sub": "Imported",
+      "display": "boot_ok_Body Color_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Right Wheel_Rim White_0",
+      "sub": "Imported",
+      "display": "Front Right Wheel_Rim White_0",
+      "aliases": []
+    },
+    {
+      "id": "Interior_Mirror_0",
+      "sub": "Imported",
+      "display": "Interior_Mirror_0",
+      "aliases": []
+    },
+    {
+      "id": "Radiator Fan_Painted Black_0",
+      "sub": "Imported",
+      "display": "Radiator Fan_Painted Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Engine Badges_Badge_0",
+      "sub": "Imported",
+      "display": "Engine Badges_Badge_0",
+      "aliases": []
+    },
+    {
+      "id": "Steering Wheel_Black_0",
+      "sub": "Imported",
+      "display": "Steering Wheel_Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Hood_Engine Bay White_0",
+      "sub": "Imported",
+      "display": "Hood_Engine Bay White_0",
+      "aliases": []
+    },
+    {
+      "id": "boot_ok_Chrome_0",
+      "sub": "Imported",
+      "display": "boot_ok_Chrome_0",
+      "aliases": []
+    },
+    {
+      "id": "Engine Bay_Black_0",
+      "sub": "Imported",
+      "display": "Engine Bay_Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Right Wheel_Painted Black_0",
+      "sub": "Imported",
+      "display": "Front Right Wheel_Painted Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Right Wheel_Rim White_0",
+      "sub": "Imported",
+      "display": "Rear Right Wheel_Rim White_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Left Wheel_Tire Sidewall_0",
+      "sub": "Imported",
+      "display": "Rear Left Wheel_Tire Sidewall_0",
+      "aliases": []
+    },
+    {
+      "id": "Windscreen Wiper_Black_0",
+      "sub": "Imported",
+      "display": "Windscreen Wiper_Black_0",
+      "aliases": []
+    },
+    {
+      "id": "Rear Bumper_Glass_0",
+      "sub": "Imported",
+      "display": "Rear Bumper_Glass_0",
+      "aliases": []
+    },
+    {
+      "id": "Speedo [actually RPM] Needle_Speedo [actually RPM] Needle_0",
+      "sub": "Imported",
+      "display": "Speedo [actually RPM] Needle_Speedo [actually RPM] Needle_0",
+      "aliases": []
+    },
+    {
+      "id": "Right Door Glass_Stitch_0",
+      "sub": "Imported",
+      "display": "Right Door Glass_Stitch_0",
+      "aliases": []
+    },
+    {
+      "id": "Chassis_Body Color_0",
+      "sub": "Imported",
+      "display": "Chassis_Body Color_0",
+      "aliases": []
+    },
+    {
+      "id": "Front Brake Caliper_Chassis_0",
+      "sub": "Imported",
+      "display": "Front Brake Caliper_Chassis_0",
+      "aliases": []
+    }
+  ]
+}
