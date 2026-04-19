@@ -300,3 +300,6 @@ cactus_server/qdrant_data/*
 # Python bytecode caches — even inside vendored trees
 **/__pycache__/
 *.pyc
+.mypy_cache
+src/__pycache__
+./cactus_server/vendor/python/src/__pycache__

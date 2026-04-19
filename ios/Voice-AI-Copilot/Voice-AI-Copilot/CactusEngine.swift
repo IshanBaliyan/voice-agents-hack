@@ -31,10 +31,10 @@ final class CactusEngine: ObservableObject {
         loadState = .loading
 
         // --- [stage 1] resolve weights path -----------------------------------------------------
-        let devPath = "/Users/ishan/Development/yc-voice-april-2026/yc-voice-v2/cactus/weights/gemma-4-e4b-it"
+        let devPath = "/Users/ishan/Development/yc-voice-april-2026/yc-voice-v2/cactus/weights/gemma-4-e2b-it"
         let bundleRoot = Bundle.main.resourcePath ?? ""
-        let bundleNested = bundleRoot + "/gemma-4-e4b-it"
-        let cachesNested = (FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.path ?? "") + "/gemma-4-e4b-it"
+        let bundleNested = bundleRoot + "/gemma-4-e2b-it"
+        let cachesNested = (FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.path ?? "") + "/gemma-4-e2b-it"
         let candidates = [devPath, bundleNested, bundleRoot, cachesNested]
 
         log.info("load.stage1.resolve — candidates=\(candidates, privacy: .public)")
