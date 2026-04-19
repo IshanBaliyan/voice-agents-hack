@@ -407,6 +407,7 @@ private struct MockHistoryRow: View {
 
 struct ProfileView: View {
     @EnvironmentObject var store: OttoStore
+    @EnvironmentObject var engine: InferenceController
 
     var body: some View {
         ZStack {
@@ -417,43 +418,138 @@ struct ProfileView: View {
                               subtitle: "YOUR GARAGE")
                     .padding(.top, 40)
 
-                Spacer()
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 18) {
+                        ZStack {
+                            Circle().fill(.ultraThinMaterial)
+                                .overlay(Circle().stroke(Color.white.opacity(0.1), lineWidth: 1))
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 42, weight: .light))
+                                .foregroundStyle(Color.white.opacity(0.75))
+                        }
+                        .frame(width: 110, height: 110)
+                        .padding(.top, 24)
 
-                VStack(spacing: 18) {
-                    ZStack {
-                        Circle().fill(.ultraThinMaterial)
-                            .overlay(Circle().stroke(Color.white.opacity(0.1), lineWidth: 1))
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 42, weight: .light))
-                            .foregroundStyle(Color.white.opacity(0.75))
+                        Text("You")
+                            .font(OttoFont.serif(22, weight: .semibold))
+                            .foregroundStyle(Color.white)
+
+                        Text("2018 Honda Civic")
+                            .font(OttoFont.mono(11))
+                            .tracking(2.2)
+                            .foregroundStyle(Color.white.opacity(0.45))
+
+                        VStack(spacing: 10) {
+                            MockProfileRow(icon: "car.fill",          label: "Vehicles")
+                            MockProfileRow(icon: "wrench.and.screwdriver.fill", label: "Saved guides")
+                            MockProfileRow(icon: "gearshape.fill",    label: "Settings")
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.top, 6)
+
+                        AIModeSection(engine: engine)
+                            .padding(.horizontal, 24)
+                            .padding(.top, 18)
+                            .padding(.bottom, 24)
                     }
-                    .frame(width: 110, height: 110)
-
-                    Text("You")
-                        .font(OttoFont.serif(22, weight: .semibold))
-                        .foregroundStyle(Color.white)
-
-                    Text("2018 Honda Civic")
-                        .font(OttoFont.mono(11))
-                        .tracking(2.2)
-                        .foregroundStyle(Color.white.opacity(0.45))
-
-                    VStack(spacing: 10) {
-                        MockProfileRow(icon: "car.fill",          label: "Vehicles")
-                        MockProfileRow(icon: "wrench.and.screwdriver.fill", label: "Saved guides")
-                        MockProfileRow(icon: "gearshape.fill",    label: "Settings")
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 6)
                 }
-
-                Spacer()
 
                 GlassNavBar(highlighted: .profile) { ottoNav($0, store: store) }
                     .padding(.horizontal, 28)
                     .padding(.bottom, 24)
             }
         }
+    }
+}
+
+// Selectable two-option section for AppMode. Matches the MockProfileRow
+// glass / ultraThinMaterial language so it doesn't stand out.
+private struct AIModeSection: View {
+    @ObservedObject var engine: InferenceController
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("AI MODE")
+                .font(OttoFont.mono(10))
+                .tracking(3.2)
+                .foregroundStyle(Color.white.opacity(0.4))
+                .padding(.leading, 18)
+
+            VStack(spacing: 8) {
+                AIModeRow(
+                    mode: .local,
+                    isSelected: engine.mode == .local,
+                    subtitle: statusLine(for: .local)
+                ) { engine.mode = .local }
+
+                AIModeRow(
+                    mode: .remote,
+                    isSelected: engine.mode == .remote,
+                    subtitle: statusLine(for: .remote)
+                ) { engine.mode = .remote }
+            }
+        }
+    }
+
+    private func statusLine(for mode: AppMode) -> String {
+        guard mode == engine.mode else {
+            return mode == .local ? "Runs fully on your iPhone" : "Routes voice + image to your Mac"
+        }
+        switch engine.loadState {
+        case .idle:    return "Idle"
+        case .loading: return mode == .local ? "Loading on-device weights…" : "Connecting to relay…"
+        case .ready:   return mode == .local ? "Ready · on-device" : "Connected · Mac relay"
+        case .failed(let msg): return msg
+        }
+    }
+}
+
+private struct AIModeRow: View {
+    let mode: AppMode
+    let isSelected: Bool
+    let subtitle: String
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 14) {
+                Image(systemName: mode == .local ? "iphone" : "laptopcomputer")
+                    .font(.system(size: 15, weight: .light))
+                    .foregroundStyle(OttoColor.orange.opacity(0.85))
+                    .frame(width: 24)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(mode.displayName)
+                        .font(OttoFont.body(15, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.88))
+                    Text(subtitle)
+                        .font(OttoFont.mono(10))
+                        .tracking(1.4)
+                        .foregroundStyle(Color.white.opacity(0.4))
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 18, weight: .light))
+                    .foregroundStyle(isSelected ? OttoColor.orange : Color.white.opacity(0.25))
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 14)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(.ultraThinMaterial)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(
+                        isSelected ? OttoColor.orange.opacity(0.45) : Color.white.opacity(0.06),
+                        lineWidth: isSelected ? 1.2 : 1
+                    )
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 
