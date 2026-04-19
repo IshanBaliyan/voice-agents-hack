@@ -207,13 +207,14 @@ struct FloatingIconButton: View {
     var body: some View {
         Button(action: action) {
             ZStack {
-                Circle().fill(filled ? OttoColor.orange : Color.clear)
+                Circle().fill(filled ? OttoColor.orange : OttoColor.navy.opacity(0.35))
                 Circle().stroke(filled ? Color.clear : OttoColor.hairline, lineWidth: 1)
                 Image(systemName: systemName)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(filled ? OttoColor.navyDeep : OttoColor.cream)
             }
             .frame(width: 48, height: 48)
+            .contentShape(Circle())
             .shadow(color: filled ? OttoColor.orange.opacity(0.45) : .clear, radius: 16)
         }
         .buttonStyle(.plain)

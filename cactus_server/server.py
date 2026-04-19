@@ -94,7 +94,7 @@ except Exception as _err:
 # ---------------------------------------------------------------------------
 
 _NAVIGATION_SYSTEM_PROMPT = (
-    "Describe what you see." 
+    "You are a helpful assistant."
 )
 
 _GEMMA_SAMPLE_RATE = 16_000
@@ -548,7 +548,7 @@ class _CactusSession:
 
         user_message: Dict[str, Any] = {
             "role": "user",
-            "content": "Help me navigate based on what you see and hear.",
+            "content": "",
         }
         if images:
             user_message["images"] = images
