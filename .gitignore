@@ -303,3 +303,5 @@ cactus_server/qdrant_data/*
 .mypy_cache
 src/__pycache__
 ./cactus_server/vendor/python/src/__pycache__
+
+/ios/Voice-AI-Copilot/Voice-AI-Copilot/gemma-4-e2b-it
