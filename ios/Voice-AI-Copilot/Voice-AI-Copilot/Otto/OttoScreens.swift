@@ -11,12 +11,16 @@ struct OttoRootView: View {
             OttoBackground()
 
             switch store.route {
-            case .home:        VoiceHomeView().environmentObject(store)
+            case .home:        OttoLandingWebView(onTap: { store.go(.session) })
+                                   .background(Color(red: 0.02, green: 0.03, blue: 0.06))
+                                   .ignoresSafeArea()
             case .session:     ActiveSessionView().environmentObject(store)
             case .camera:      CameraScanView().environmentObject(store)
             case .history:     HistoryView().environmentObject(store)
             case .profile:     ProfileView().environmentObject(store)
             case .repairGuide: RepairGuideRootView().environmentObject(store)
+            case .training:    TrainingView().environmentObject(store)
+            case .exploded:    ExplodedView().environmentObject(store)
             }
         }
         .preferredColorScheme(.dark)
@@ -29,16 +33,14 @@ struct OttoRootView: View {
 }
 
 // MARK: - Home
-// On first appear, the porsche drives up from the bottom of the screen on a
-// perspective road and docks at its resting position. The road then fades
-// away and the home UI (wordmark, orb, caption, camera) fades in around it.
+// Landing page. On first appear the porsche drives top → bottom across the
+// screen, then exits off the bottom and the Otto home UI fades in.
 
 struct VoiceHomeView: View {
     @EnvironmentObject var store: OttoStore
 
     @State private var arrived = false
-    @State private var drive: CGFloat = 0        // 0 = far tiny at bottom, 1 = off the top
-    @State private var roadPhase: CGFloat = 0
+    @State private var drive: CGFloat = 0          // 0 = off-top, 1 = off-bottom
     @State private var introOpacity: Double = 1
     @State private var homeOpacity: Double = 0
     @State private var showHome = false
@@ -52,6 +54,9 @@ struct VoiceHomeView: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
+                OttoAtmosphere()
+                    .ignoresSafeArea()
+
                 introLayer(geo: geo)
                     .opacity(introOpacity)
                     .allowsHitTesting(!showHome)
@@ -65,17 +70,8 @@ struct VoiceHomeView: View {
         .task {
             guard !arrived else { return }
             arrived = true
-            // Match the reference: 0.5s per dash cycle (fast scroll).
-            withAnimation(.linear(duration: 0.5).repeatForever(autoreverses: false)) {
-                roadPhase = 1
-            }
-            // Car drives the full length and exits off the top.
-            withAnimation(.timingCurve(0.28, 0.0, 0.55, 1.0, duration: 3.4)) {
-                drive = 1.0
-            }
-            try? await Task.sleep(nanoseconds: 3_500_000_000)
-
-            // Car is gone. Swap to home page.
+            withAnimation(.linear(duration: 10.5)) { drive = 1.0 }
+            try? await Task.sleep(nanoseconds: 10_600_000_000)
             showHome = true
             withAnimation(.easeInOut(duration: 0.55)) {
                 introOpacity = 0
@@ -84,50 +80,25 @@ struct VoiceHomeView: View {
         }
     }
 
-    // MARK: - Intro layer
-
+    // Intro: porsche drives top → bottom at constant size.
     private func introLayer(geo: GeometryProxy) -> some View {
-        let finalH = dockedHeight(geo) * 1.7
-        let startH: CGFloat = 48
-        let carH = startH + (finalH - startH) * drive
+        let carH = dockedHeight(geo)
         let carW = carH * carAspect
-
-        let startY = geo.size.height * 0.95
-        let endY = -carH
+        let startY = -carH
+        let endY = geo.size.height + carH * 0.5
         let carY = startY + (endY - startY) * drive
 
-        return ZStack {
-            AmbientBackground()
-                .ignoresSafeArea()
-
-            PerspectiveRoad(phase: roadPhase)
-                .ignoresSafeArea()
-
-            // 3. The car itself.
-            Image("PorscheClipart")
-                .resizable()
-                .renderingMode(.original)
-                .scaledToFit()
-                .frame(width: carW, height: carH)
-                .shadow(color: OttoColor.orange.opacity(0.25 + 0.25 * Double(drive)),
-                        radius: 26 + 22 * drive, x: 0, y: 10 + 14 * drive)
-                .position(x: geo.size.width / 2, y: carY)
-
-            // 4. Glassmorphic control panel — sits at the bottom like a HUD,
-            // showing the driving caption while the car is on its way up.
-            VStack {
-                Spacer()
-                GlassDrivingPanel(progress: drive)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 28)
-            }
-        }
+        return Image("PorscheClipart")
+            .resizable()
+            .renderingMode(.original)
+            .scaledToFit()
+            .frame(width: carW, height: carH)
+            .rotationEffect(.degrees(180))
+            .shadow(color: OttoColor.accentWarm.opacity(0.35), radius: 28, x: 0, y: 14)
+            .position(x: geo.size.width / 2, y: carY)
     }
 
-    // MARK: - Home layer
-    // Minimal landing: Otto wordmark, caption, porsche. Tap anywhere to open
-    // the voice session (which owns the orb + camera button).
-
+    // Home: wordmark + docked porsche + nav. Tap anywhere opens session.
     private func homeLayer(geo: GeometryProxy) -> some View {
         let carH = min(geo.size.height * 0.42, 380)
         let carW = carH * carAspect
@@ -136,18 +107,14 @@ struct VoiceHomeView: View {
             store.go(.session)
         } label: {
             VStack(spacing: 0) {
-                Spacer().frame(height: geo.size.height * 0.11)
-
-                HStack(alignment: .top, spacing: 4) {
-                    Text("Otto")
-                        .font(OttoFont.serif(56, weight: .light))
-                        .foregroundStyle(OttoColor.cream)
-                    Circle().fill(OttoColor.orange)
-                        .frame(width: 10, height: 10)
-                        .offset(y: 24)
-                }
-                Label2Mono(text: "Your pocket mechanic")
+                OttoTopBar(vehicle: "2018 Honda Civic", battery: 96, showWordmark: false)
                     .padding(.top, 4)
+
+                Spacer().frame(height: 16)
+
+                OttoWordmark(size: 56)
+                OttoEyebrow(text: "Your pocket mechanic")
+                    .padding(.top, 6)
 
                 Spacer()
 
@@ -156,15 +123,17 @@ struct VoiceHomeView: View {
                     .renderingMode(.original)
                     .scaledToFit()
                     .frame(width: carW, height: carH)
-                    .shadow(color: OttoColor.orange.opacity(0.3), radius: 34, x: 0, y: 20)
+                    .rotationEffect(.degrees(180))
+                    .shadow(color: OttoColor.accentWarm.opacity(0.30), radius: 34, x: 0, y: 20)
 
                 Spacer()
 
-                Text("Tap anywhere to talk")
-                    .font(OttoFont.mono(11, weight: .regular))
-                    .tracking(2.4)
-                    .foregroundStyle(OttoColor.creamFaint)
-                    .padding(.bottom, 40)
+                OttoEyebrow(text: "Tap anywhere to talk")
+                    .padding(.bottom, 20)
+
+                GlassNavBar(highlighted: .home) { ottoNav($0, store: store) }
+                    .padding(.horizontal, 22)
+                    .padding(.bottom, 28)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .contentShape(Rectangle())
@@ -173,9 +142,8 @@ struct VoiceHomeView: View {
     }
 }
 
-// MARK: - Active Session
-// Live voice loop. Orb reflects true VoiceState; transcript shows what the
-// recognizer heard or what Otto answered.
+// MARK: - Active Session (Listening + Speaking + Thinking + Idle)
+// Mirrors design screens 02 (Listening) and 03 (Otto responds).
 
 struct ActiveSessionView: View {
     @EnvironmentObject var store: OttoStore
@@ -184,103 +152,152 @@ struct ActiveSessionView: View {
 
     var body: some View {
         ZStack {
-            AmbientBackground()
-                .ignoresSafeArea()
-
-            #if os(iOS) && !targetEnvironment(simulator)
-            SessionCameraBackdrop()
-                .ignoresSafeArea()
-                .opacity(0.35)
-            #endif
-
-            LinearGradient(
-                colors: [Color.black.opacity(0.55),
-                         Color.clear,
-                         Color.black.opacity(0.15),
-                         Color.black.opacity(0.75)],
-                startPoint: .top, endPoint: .bottom
-            )
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
+            OttoAtmosphere()
 
             VStack(spacing: 0) {
-                // Otto wordmark top-left.
+                OttoTopBar(vehicle: "2018 Honda Civic", battery: 96, showWordmark: true)
+                    .padding(.top, 4)
+
+                statusBadge
+                    .padding(.top, 8)
+
+                // Snapchat-style live camera viewport fills the middle area.
+                // Transcript + waveform are overlaid on the bottom half with a
+                // readability scrim so they stay legible on any camera content.
+                cameraViewport
+                    .padding(.horizontal, 14)
+                    .padding(.top, 12)
+                    .frame(maxHeight: .infinity)
+
+                // Floating mic — docked bottom-right above the nav bar.
                 HStack {
-                    HStack(alignment: .top, spacing: 1) {
-                        Text("Otto")
-                            .font(OttoFont.serif(30, weight: .semibold))
-                            .foregroundStyle(Color.white)
-                        Text(".")
-                            .font(OttoFont.serif(26, weight: .semibold))
-                            .foregroundStyle(OttoColor.orange)
-                            .offset(y: 4)
-                    }
-                    .shadow(color: .black.opacity(0.6), radius: 10)
                     Spacer()
+                    Button { store.tapMic() } label: {
+                        BreathingOrb(state: store.voice, size: orbSize)
+                            .frame(width: orbSize * 1.9, height: orbSize * 1.9)
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 22)
-                .padding(.top, 14)
+                .padding(.trailing, 18)
+                .padding(.bottom, 6)
 
-                Spacer()
-
-                // Live transcript / response text sits above the mic.
-                transcriptBlock
-                    .padding(.horizontal, 28)
-                    .padding(.bottom, 20)
-
-                // Compact HUD sitting just above the nav bar.
-                HudWrapper(isRecording: isRecording) {
-                    store.tapMic()
-                }
-                .scaleEffect(0.62)
-                .frame(width: 320 * 0.62, height: 320 * 0.62)
-                .padding(.bottom, 10)
-
-                GlassNavBar(highlighted: .home) { handleNav($0) }
-                    .padding(.horizontal, 28)
-                    .padding(.bottom, 24)
+                GlassNavBar(highlighted: .home) { ottoNav($0, store: store) }
+                    .padding(.horizontal, 22)
+                    .padding(.bottom, 28)
             }
         }
     }
 
-    // Text that sits above the mic. Shows live recognizer transcript while
-    // listening, Otto's streaming answer while speaking, or a subtle
-    // "Tap to talk" hint while idle.
+    @ViewBuilder
+    private var cameraViewport: some View {
+        ZStack(alignment: .bottom) {
+            #if os(iOS)
+            SessionCameraBackdrop()
+            #else
+            Color.black
+            #endif
+
+            // Bottom-up scrim so overlay text stays readable on bright scenes.
+            LinearGradient(
+                colors: [.clear, .clear, Color.black.opacity(0.55)],
+                startPoint: .top, endPoint: .bottom
+            )
+            .allowsHitTesting(false)
+
+            // Transcript + waveform overlaid on the lower portion of the
+            // camera card. Gives the feed breathing room up top, like
+            // Snapchat's viewfinder with captions on the bottom.
+            VStack(spacing: 14) {
+                transcriptBlock
+                    .padding(.horizontal, 20)
+
+                if store.voice == .listening {
+                    OttoWaveLine(color: OttoColor.fog2, active: true, width: 240, height: 28)
+                }
+
+                if store.voice == .speaking {
+                    speakingActions
+                        .padding(.horizontal, 20)
+                }
+            }
+            .padding(.bottom, 22)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(OttoColor.fog3.opacity(0.15), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.55), radius: 28, x: 0, y: 16)
+    }
+
+    private var orbSize: CGFloat { 54 }   // nav-bar icon pill (44) + ~20%
+
+    @ViewBuilder
+    private var statusBadge: some View {
+        switch store.voice {
+        case .listening:
+            HStack(spacing: 8) {
+                PulsingDot(color: OttoColor.fog2)
+                OttoEyebrow(text: "Listening", color: OttoColor.fog2)
+            }
+        case .thinking:
+            HStack(spacing: 8) {
+                PulsingDot(color: OttoColor.accent)
+                OttoEyebrow(text: "Thinking", color: OttoColor.accent)
+            }
+        case .speaking:
+            HStack(spacing: 8) {
+                PulsingDot(color: OttoColor.accentWarm)
+                OttoEyebrow(text: "Otto is speaking", color: OttoColor.accentWarm)
+            }
+        case .idle:
+            EmptyView()
+        }
+    }
+
+    // Live transcript while listening, Otto's streaming answer while speaking,
+    // and a soft hint at idle. Same content as before — just restyled.
     @ViewBuilder private var transcriptBlock: some View {
         Group {
             switch store.voice {
             case .listening:
                 Text(store.partialTranscript.isEmpty ? "Listening…" : store.partialTranscript)
-                    .font(OttoFont.serif(20, weight: .regular))
-                    .foregroundStyle(Color.white)
+                    .font(.system(size: 22, weight: .light))
+                    .foregroundStyle(OttoColor.ink)
                     .multilineTextAlignment(.center)
+                    .lineSpacing(2)
                     .lineLimit(4)
 
             case .thinking:
                 Text("Thinking…")
                     .font(OttoFont.body(15, weight: .light))
-                    .foregroundStyle(Color.white.opacity(0.7))
+                    .foregroundStyle(OttoColor.ink2)
 
             case .speaking:
                 let a = store.currentAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
-                Text(a.isEmpty ? "Speaking…" : a)
-                    .font(OttoFont.serif(18, weight: .regular))
-                    .italic()
-                    .foregroundStyle(Color.white.opacity(0.95))
-                    .multilineTextAlignment(.center)
-                    .lineLimit(5)
+                OttoCard(padding: 18, corner: 22) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        OttoEyebrow(text: "Otto · on-device")
+                        Text(a.isEmpty ? "Speaking…" : a)
+                            .font(.system(size: 16, weight: .light))
+                            .foregroundStyle(OttoColor.ink)
+                            .lineSpacing(3)
+                            .multilineTextAlignment(.leading)
+                    }
+                }
 
             case .idle:
                 if let last = store.history.last, last.role == .otto {
                     Text(last.text)
                         .font(OttoFont.body(14))
-                        .foregroundStyle(Color.white.opacity(0.6))
+                        .foregroundStyle(OttoColor.ink3)
                         .multilineTextAlignment(.center)
                         .lineLimit(3)
                 } else {
                     Text("Tap to talk")
                         .font(OttoFont.body(14, weight: .light))
-                        .foregroundStyle(Color.white.opacity(0.55))
+                        .foregroundStyle(OttoColor.ink3)
                 }
             }
         }
@@ -288,122 +305,518 @@ struct ActiveSessionView: View {
         .animation(.easeInOut(duration: 0.2), value: store.voice)
     }
 
-    private func handleNav(_ item: GlassNavBar.Item) {
-        switch item {
-        case .home:    store.go(.session)   // "home" tab = voice recorder
-        case .guide:   store.go(.repairGuide)
-        case .history: store.go(.history)
-        case .camera:  store.go(.camera)
-        case .profile: store.go(.profile)
+    // "Start guide / Not now" chips appear while Otto is speaking — matches
+    // the redesign's gentle hand-off pattern.
+    @ViewBuilder private var speakingActions: some View {
+        HStack(spacing: 10) {
+            Button { store.go(.repairGuide) } label: {
+                OttoChip(text: "Start guide", active: true)
+            }
+            .buttonStyle(.plain)
+
+            Button { store.resetSession() } label: {
+                OttoChip(text: "Not now")
+            }
+            .buttonStyle(.plain)
+
+            Spacer(minLength: 0)
         }
+    }
+}
+
+// Small pulsing status dot.
+struct PulsingDot: View {
+    var color: Color
+    @State private var pulse = false
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: 8, height: 8)
+            .shadow(color: color, radius: 6)
+            .opacity(pulse ? 0.5 : 1.0)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) {
+                    pulse = true
+                }
+            }
     }
 }
 
 // MARK: - Shared nav routing
-// Used by HistoryView / ProfileView so all tab-bearing pages share the same
-// navigation logic. Home tab is the voice recorder (session).
 
 func ottoNav(_ item: GlassNavBar.Item, store: OttoStore) {
     switch item {
-    case .home:    store.go(.session)
-    case .guide:   store.go(.repairGuide)
-    case .history: store.go(.history)
-    case .camera:  store.go(.camera)
-    case .profile: store.go(.profile)
+    case .home:     store.go(.session)
+    case .guide:    store.go(.repairGuide)
+    case .exploded: store.go(.exploded)
+    case .history:  store.go(.history)
+    case .training: store.go(.training)
+    case .profile:  store.go(.profile)
     }
 }
 
-// MARK: - History (mock)
+// MARK: - History
+// Live, persistent log of past Q&A and Repair Guide manuals. Pulls from
+// HistoryStore.shared — written into by OttoStore (Q&A turns) and
+// RepairGuideStore (manuals + their step images).
 
 struct HistoryView: View {
     @EnvironmentObject var store: OttoStore
+    @StateObject private var history = HistoryStore.shared
+    @State private var selected: HistoryEntry?
 
     var body: some View {
         ZStack {
-            AmbientBackground()
+            OttoAtmosphere()
 
             VStack(spacing: 0) {
-                sessionHeader(title: "History",
-                              subtitle: "YOUR PAST CONVERSATIONS")
-                    .padding(.top, 40)
+                OttoTopBar(vehicle: "2018 Honda Civic", battery: 96)
+                    .padding(.top, 4)
 
-                Spacer()
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("History")
+                        .font(.system(size: 34, weight: .light))
+                        .foregroundStyle(OttoColor.ink)
+                        .kerning(-0.6)
+                    OttoEyebrow(text: "Your past conversations")
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 22)
+                .padding(.top, 8)
 
-                VStack(spacing: 14) {
-                    ForEach(mockRows) { row in
-                        MockHistoryRow(title: row.title, meta: row.meta)
+                if history.entries.isEmpty {
+                    emptyState
+                } else {
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 10) {
+                            ForEach(history.entries) { entry in
+                                Button { selected = entry } label: {
+                                    HistoryCardRow(
+                                        entry: entry,
+                                        meta: history.relativeMeta(for: entry),
+                                        tail: history.tail(for: entry)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        history.delete(entry)
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 18)
+                        .padding(.bottom, 12)
                     }
                 }
-                .padding(.horizontal, 24)
-
-                Spacer()
 
                 GlassNavBar(highlighted: .history) { ottoNav($0, store: store) }
-                    .padding(.horizontal, 28)
-                    .padding(.bottom, 24)
+                    .padding(.horizontal, 22)
+                    .padding(.bottom, 28)
             }
         }
+        .sheet(item: $selected) { entry in
+            HistoryDetailView(entry: entry)
+        }
+        .onAppear { history.load() }
     }
 
-    private struct HistoryRow: Identifiable {
-        let id = UUID()
-        let title: String
-        let meta: String
-    }
-
-    private var mockRows: [HistoryRow] {
-        [
-            HistoryRow(title: "Changing a tire on my Civic", meta: "Today · 3 steps"),
-            HistoryRow(title: "What engine is in this?",     meta: "Yesterday · 1 min"),
-            HistoryRow(title: "Oil for a 2018 Honda",        meta: "Apr 14 · 2 min"),
-        ]
+    private var emptyState: some View {
+        VStack(spacing: 14) {
+            Spacer()
+            Image(systemName: "tray")
+                .font(.system(size: 38, weight: .ultraLight))
+                .foregroundStyle(OttoColor.ink3)
+            Text("Nothing here yet")
+                .font(.system(size: 17, weight: .regular))
+                .foregroundStyle(OttoColor.ink2)
+            Text("Ask Otto a question or generate a repair\nguide — they'll show up here.")
+                .font(.system(size: 13, weight: .light))
+                .foregroundStyle(OttoColor.ink3)
+                .multilineTextAlignment(.center)
+                .lineSpacing(2)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 32)
     }
 }
 
-private struct MockHistoryRow: View {
-    let title: String
+private struct HistoryCardRow: View {
+    let entry: HistoryEntry
     let meta: String
+    let tail: String
 
     var body: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle().fill(Color.white.opacity(0.04))
-                Image(systemName: "waveform")
-                    .font(.system(size: 16, weight: .light))
-                    .foregroundStyle(OttoColor.orange.opacity(0.85))
-            }
-            .frame(width: 40, height: 40)
+        HStack(spacing: 12) {
+            thumbnail
+                .frame(width: 44, height: 44)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(OttoFont.body(15, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.9))
-                Text(meta)
-                    .font(OttoFont.mono(10))
-                    .tracking(1.8)
-                    .foregroundStyle(Color.white.opacity(0.4))
+                Text(entry.title)
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundStyle(OttoColor.ink)
+                    .lineLimit(1)
+                HStack(spacing: 8) {
+                    Text(meta)
+                        .font(OttoFont.mono(11))
+                        .foregroundStyle(OttoColor.ink3)
+                    Circle().fill(OttoColor.ink4).frame(width: 3, height: 3)
+                    Text(tail)
+                        .font(.system(size: 11))
+                        .foregroundStyle(OttoColor.ink3)
+                }
             }
 
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .light))
-                .foregroundStyle(Color.white.opacity(0.3))
+                .font(.system(size: 11, weight: .light))
+                .foregroundStyle(OttoColor.ink3)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(.ultraThinMaterial)
         )
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(LinearGradient(
+                    colors: [Color(red: 30/255, green: 44/255, blue: 72/255).opacity(0.45),
+                             Color(red: 16/255, green: 26/255, blue: 46/255).opacity(0.65)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing))
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                .stroke(OttoColor.fog3.opacity(0.08), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.22), radius: 10, x: 0, y: 6)
+    }
+
+    @ViewBuilder
+    private var thumbnail: some View {
+        if entry.kind == .manual,
+           let path = entry.thumbnailPath,
+           let ui = UIImage(contentsOfFile: path) {
+            Image(uiImage: ui)
+                .resizable()
+                .scaledToFill()
+                .clipShape(Circle())
+                .overlay(Circle().stroke(OttoColor.fog3.opacity(0.20), lineWidth: 1))
+        } else {
+            ZStack {
+                Circle()
+                    .fill(LinearGradient(
+                        colors: [OttoColor.accentWarm.opacity(0.18), OttoColor.fog1.opacity(0.08)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .overlay(Circle().stroke(Color.white.opacity(0.06), lineWidth: 1))
+                Image(systemName: entry.kind == .manual ? "wrench.and.screwdriver" : "waveform")
+                    .font(.system(size: 16, weight: .light))
+                    .foregroundStyle(OttoColor.accentWarm)
+            }
+        }
+    }
+}
+
+// MARK: - History Detail
+// Sheet that opens when a History row is tapped. Two layouts:
+//
+//   • Manual:  shows the original question, manual title, and every step with
+//              its illustration — a scrollable, document-style replay.
+//   • Q&A:     shows the question and Otto's answer, formatted as a transcript.
+
+struct HistoryDetailView: View {
+    let entry: HistoryEntry
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var manual: RepairManual?
+
+    var body: some View {
+        ZStack {
+            OttoAtmosphere()
+
+            VStack(spacing: 0) {
+                detailHeader
+                    .padding(.top, 4)
+
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Original question — always shown.
+                        VStack(alignment: .leading, spacing: 8) {
+                            OttoEyebrow(text: "You asked")
+                            Text(entry.query)
+                                .font(.system(size: 20, weight: .light))
+                                .foregroundStyle(OttoColor.ink)
+                                .kerning(-0.2)
+                                .lineSpacing(2)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(18)
+                        .background(
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .fill(.ultraThinMaterial)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .stroke(OttoColor.fog3.opacity(0.10), lineWidth: 1)
+                        )
+
+                        if entry.kind == .manual {
+                            manualBody
+                        } else {
+                            qaBody
+                        }
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.top, 14)
+                    .padding(.bottom, 32)
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+        .task {
+            // Resolve the cached manual lazily so the row tap is instant even
+            // for big multi-step guides.
+            if entry.kind == .manual {
+                manual = HistoryStore.shared.loadManual(for: entry)
+            }
+        }
+    }
+
+    private var detailHeader: some View {
+        HStack(spacing: 12) {
+            Button { dismiss() } label: {
+                OttoNeuCircle(size: 40) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(OttoColor.ink)
+                }
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            VStack(spacing: 2) {
+                OttoEyebrow(text: HistoryStore.shared.relativeMeta(for: entry))
+                Text(entry.kind == .manual ? "Repair guide" : "Voice answer")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(OttoColor.ink2)
+            }
+
+            Spacer()
+
+            Color.clear.frame(width: 40, height: 40)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 8)
+    }
+
+    @ViewBuilder
+    private var manualBody: some View {
+        if let m = manual {
+            VStack(alignment: .leading, spacing: 14) {
+                Text(m.title)
+                    .font(.system(size: 26, weight: .regular))
+                    .foregroundStyle(OttoColor.ink)
+                    .kerning(-0.4)
+                    .padding(.top, 6)
+
+                if let overview = m.overview, !overview.isEmpty {
+                    Text(overview)
+                        .font(.system(size: 14, weight: .light))
+                        .foregroundStyle(OttoColor.ink2)
+                        .lineSpacing(3)
+                }
+
+                if !m.requiredTools.isEmpty {
+                    OttoEyebrow(text: "Required tools")
+                        .padding(.top, 4)
+                    FlexibleChips(items: m.requiredTools)
+                }
+
+                if !m.safetyWarnings.isEmpty {
+                    OttoEyebrow(text: "Safety")
+                        .padding(.top, 8)
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(m.safetyWarnings, id: \.self) { w in
+                            HStack(alignment: .top, spacing: 8) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(OttoColor.accentWarm)
+                                    .padding(.top, 2)
+                                Text(w)
+                                    .font(.system(size: 13, weight: .light))
+                                    .foregroundStyle(OttoColor.ink)
+                            }
+                        }
+                    }
+                }
+
+                ForEach(Array(m.steps.enumerated()), id: \.element.id) { idx, step in
+                    HistoryStepCard(step: step, index: idx, total: m.steps.count)
+                }
+            }
+        } else {
+            VStack(spacing: 10) {
+                ProgressView().tint(OttoColor.accentWarm)
+                Text("Loading manual…")
+                    .font(.system(size: 13, weight: .light))
+                    .foregroundStyle(OttoColor.ink3)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 60)
+        }
+    }
+
+    private var qaBody: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            OttoEyebrow(text: "Otto answered")
+            Text(entry.answer ?? "")
+                .font(.system(size: 16, weight: .light))
+                .foregroundStyle(OttoColor.ink)
+                .lineSpacing(4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(.ultraThinMaterial)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(LinearGradient(
+                    colors: [Color(red: 30/255, green: 44/255, blue: 72/255).opacity(0.55),
+                             Color(red: 16/255, green: 26/255, blue: 46/255).opacity(0.7)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(OttoColor.fog3.opacity(0.10), lineWidth: 1)
         )
     }
 }
 
-// MARK: - Profile (mock)
+// One step card in the manual viewer — illustration + body + tools.
+private struct HistoryStepCard: View {
+    let step: RepairStep
+    let index: Int
+    let total: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(LinearGradient(
+                        colors: [Color(red: 14/255, green: 22/255, blue: 40/255).opacity(0.85),
+                                 Color(red: 22/255, green: 34/255, blue: 58/255).opacity(0.6)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing))
+
+                if let p = step.imagePNGPath, let ui = UIImage(contentsOfFile: p) {
+                    Image(uiImage: ui)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .padding(2)
+                } else {
+                    Image(systemName: "wrench.and.screwdriver")
+                        .font(.system(size: 38, weight: .ultraLight))
+                        .foregroundStyle(OttoColor.ink3)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+
+                Text(String(format: "STEP %02d / %02d", index + 1, total))
+                    .font(OttoFont.mono(9.5, weight: .medium))
+                    .tracking(2.0)
+                    .foregroundStyle(OttoColor.ink3)
+                    .padding(.leading, 14)
+                    .padding(.top, 12)
+            }
+            .frame(height: 200)
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text(step.title)
+                    .font(.system(size: 18, weight: .regular))
+                    .foregroundStyle(OttoColor.ink)
+                    .kerning(-0.3)
+
+                Text(step.description)
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundStyle(OttoColor.ink2)
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if !step.tools.isEmpty {
+                    OttoEyebrow(text: "Tools")
+                        .padding(.top, 4)
+                    FlexibleChips(items: step.tools)
+                }
+            }
+            .padding(16)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(.ultraThinMaterial)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(LinearGradient(
+                    colors: [Color(red: 30/255, green: 44/255, blue: 72/255).opacity(0.55),
+                             Color(red: 16/255, green: 26/255, blue: 46/255).opacity(0.75)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(OttoColor.fog3.opacity(0.08), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.30), radius: 14, x: 0, y: 8)
+    }
+}
+
+// Wrap-flow row of small chips (used for tools / required tools).
+private struct FlexibleChips: View {
+    let items: [String]
+
+    var body: some View {
+        // SwiftUI doesn't ship a wrap-flow layout pre-iOS 16 friendly enough
+        // to use here — VStack of HStacks via chunking keeps it simple. Up to
+        // ~6 chips per row before clipping; tools lists are short by design.
+        let rows = chunked(items, perRow: 3)
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                HStack(spacing: 8) {
+                    ForEach(row, id: \.self) { chip in
+                        HStack(spacing: 6) {
+                            Circle().fill(OttoColor.fog2).frame(width: 5, height: 5)
+                                .shadow(color: OttoColor.fog2, radius: 3)
+                            Text(chip)
+                                .font(.system(size: 12, weight: .regular))
+                                .foregroundStyle(OttoColor.ink)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(OttoColor.fog3.opacity(0.06)))
+                        .overlay(Capsule().stroke(OttoColor.fog3.opacity(0.12), lineWidth: 1))
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+    }
+
+    private func chunked(_ arr: [String], perRow: Int) -> [[String]] {
+        stride(from: 0, to: arr.count, by: perRow).map {
+            Array(arr[$0..<min($0 + perRow, arr.count)])
+        }
+    }
+}
+
+// MARK: - Profile
 
 struct ProfileView: View {
     @EnvironmentObject var store: OttoStore
@@ -411,89 +824,114 @@ struct ProfileView: View {
 
     var body: some View {
         ZStack {
-            AmbientBackground()
+            OttoAtmosphere()
 
             VStack(spacing: 0) {
-                sessionHeader(title: "Profile",
-                              subtitle: "YOUR GARAGE")
-                    .padding(.top, 40)
+                OttoTopBar(vehicle: "2018 Honda Civic", battery: 96)
+                    .padding(.top, 4)
+
+                VStack(spacing: 4) {
+                    Text("Profile")
+                        .font(.system(size: 34, weight: .light))
+                        .foregroundStyle(OttoColor.ink)
+                        .kerning(-0.5)
+                    OttoEyebrow(text: "Your garage")
+                }
+                .padding(.top, 8)
 
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 18) {
-                        ZStack {
-                            Circle().fill(.ultraThinMaterial)
-                                .overlay(Circle().stroke(Color.white.opacity(0.1), lineWidth: 1))
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 42, weight: .light))
-                                .foregroundStyle(Color.white.opacity(0.75))
+                    VStack(spacing: 0) {
+                        avatar
+                            .padding(.top, 22)
+
+                        VStack(spacing: 4) {
+                            Text("Alex Chen")
+                                .font(.system(size: 20, weight: .regular))
+                                .foregroundStyle(OttoColor.ink)
+                                .kerning(-0.2)
+                            OttoEyebrow(text: "2018 Honda Civic · EX")
                         }
-                        .frame(width: 110, height: 110)
-                        .padding(.top, 24)
+                        .padding(.top, 14)
 
-                        Text("You")
-                            .font(OttoFont.serif(22, weight: .semibold))
-                            .foregroundStyle(Color.white)
-
-                        Text("2018 Honda Civic")
-                            .font(OttoFont.mono(11))
-                            .tracking(2.2)
-                            .foregroundStyle(Color.white.opacity(0.45))
-
-                        VStack(spacing: 10) {
-                            MockProfileRow(icon: "car.fill",          label: "Vehicles")
-                            MockProfileRow(icon: "wrench.and.screwdriver.fill", label: "Saved guides")
-                            MockProfileRow(icon: "gearshape.fill",    label: "Settings")
+                        VStack(spacing: 8) {
+                            ProfileGlassRow(icon: "car.fill", label: "Vehicles", count: "2")
+                            ProfileGlassRow(icon: "wrench.and.screwdriver.fill", label: "Saved guides", count: "7")
+                            ProfileGlassRow(icon: "gearshape.fill", label: "Settings", count: nil)
                         }
-                        .padding(.horizontal, 24)
-                        .padding(.top, 6)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 22)
 
                         AIModeSection(engine: engine)
-                            .padding(.horizontal, 24)
-                            .padding(.top, 18)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 22)
                             .padding(.bottom, 24)
                     }
                 }
 
                 GlassNavBar(highlighted: .profile) { ottoNav($0, store: store) }
-                    .padding(.horizontal, 28)
-                    .padding(.bottom, 24)
+                    .padding(.horizontal, 22)
+                    .padding(.bottom, 28)
             }
         }
     }
+
+    private var avatar: some View {
+        ZStack {
+            Circle()
+                .fill(LinearGradient(
+                    colors: [OttoColor.fog2.opacity(0.6), OttoColor.fog1.opacity(0.85)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing))
+                .overlay(
+                    Circle().fill(RadialGradient(
+                        colors: [Color.white.opacity(0.30), .clear],
+                        center: UnitPoint(x: 0.30, y: 0.25),
+                        startRadius: 0,
+                        endRadius: 60))
+                )
+                .overlay(Circle().stroke(OttoColor.fog3.opacity(0.18), lineWidth: 1))
+            Image(systemName: "person.fill")
+                .font(.system(size: 36, weight: .regular))
+                .foregroundStyle(OttoColor.ink)
+        }
+        .frame(width: 96, height: 96)
+        .shadow(color: OttoColor.fog2.opacity(0.35), radius: 30)
+        .shadow(color: .black.opacity(0.45), radius: 22, x: 0, y: 12)
+    }
 }
 
-// Selectable two-option section for AppMode. Matches the MockProfileRow
-// glass / ultraThinMaterial language so it doesn't stand out.
+// AI mode — two side-by-side cards.
 private struct AIModeSection: View {
     @ObservedObject var engine: InferenceController
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("AI MODE")
-                .font(OttoFont.mono(10))
-                .tracking(3.2)
-                .foregroundStyle(Color.white.opacity(0.4))
-                .padding(.leading, 18)
+        VStack(alignment: .leading, spacing: 12) {
+            OttoEyebrow(text: "AI Mode")
+                .padding(.leading, 4)
 
-            VStack(spacing: 8) {
-                AIModeRow(
-                    mode: .local,
-                    isSelected: engine.mode == .local,
-                    subtitle: statusLine(for: .local)
-                ) { engine.mode = .local }
-
-                AIModeRow(
-                    mode: .remote,
-                    isSelected: engine.mode == .remote,
-                    subtitle: statusLine(for: .remote)
-                ) { engine.mode = .remote }
+            HStack(spacing: 10) {
+                AIModeCard(
+                    icon: "iphone",
+                    title: "On-device",
+                    sub: "Runs fully on your iPhone",
+                    status: statusLine(for: .local),
+                    selected: engine.mode == .local,
+                    action: { engine.mode = .local }
+                )
+                AIModeCard(
+                    icon: "laptopcomputer",
+                    title: "Mac relay",
+                    sub: "Routes voice + image to your Mac",
+                    status: statusLine(for: .remote),
+                    selected: engine.mode == .remote,
+                    action: { engine.mode = .remote }
+                )
             }
         }
     }
 
     private func statusLine(for mode: AppMode) -> String {
         guard mode == engine.mode else {
-            return mode == .local ? "Runs fully on your iPhone" : "Routes voice + image to your Mac"
+            return mode == .local ? "Ready · on-device" : "Standby"
         }
         switch engine.loadState {
         case .idle:    return "Idle"
@@ -504,97 +942,129 @@ private struct AIModeSection: View {
     }
 }
 
-private struct AIModeRow: View {
-    let mode: AppMode
-    let isSelected: Bool
-    let subtitle: String
-    let onTap: () -> Void
+private struct AIModeCard: View {
+    let icon: String
+    let title: String
+    let sub: String
+    let status: String
+    let selected: Bool
+    let action: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 14) {
-                Image(systemName: mode == .local ? "iphone" : "laptopcomputer")
-                    .font(.system(size: 15, weight: .light))
-                    .foregroundStyle(OttoColor.orange.opacity(0.85))
-                    .frame(width: 24)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(mode.displayName)
-                        .font(OttoFont.body(15, weight: .medium))
-                        .foregroundStyle(Color.white.opacity(0.88))
-                    Text(subtitle)
-                        .font(OttoFont.mono(10))
-                        .tracking(1.4)
-                        .foregroundStyle(Color.white.opacity(0.4))
-                        .lineLimit(1)
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(OttoColor.accentWarm.opacity(0.14))
+                            .frame(width: 26, height: 26)
+                        Image(systemName: icon)
+                            .font(.system(size: 12, weight: .light))
+                            .foregroundStyle(OttoColor.accentWarm)
+                    }
+                    Spacer()
+                    if selected {
+                        ZStack {
+                            Circle().fill(OttoColor.accentWarm)
+                                .frame(width: 16, height: 16)
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(OttoColor.bg0)
+                        }
+                    }
                 }
-
-                Spacer()
-
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 18, weight: .light))
-                    .foregroundStyle(isSelected ? OttoColor.orange : Color.white.opacity(0.25))
+                Text(title)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(OttoColor.ink)
+                    .padding(.top, 8)
+                Text(sub)
+                    .font(.system(size: 11))
+                    .foregroundStyle(OttoColor.ink3)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .padding(.top, 3)
+                Text(status.uppercased())
+                    .font(OttoFont.mono(9.5, weight: .medium))
+                    .tracking(1.8)
+                    .foregroundStyle(selected ? OttoColor.accentWarm : OttoColor.ink4)
+                    .padding(.top, 10)
+                    .lineLimit(1)
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(.ultraThinMaterial)
             )
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(LinearGradient(
+                        colors: selected
+                            ? [OttoColor.fog2.opacity(0.18), OttoColor.fog1.opacity(0.18)]
+                            : [Color(red: 30/255, green: 44/255, blue: 72/255).opacity(0.45),
+                               Color(red: 16/255, green: 26/255, blue: 46/255).opacity(0.65)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing))
+            )
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(
-                        isSelected ? OttoColor.orange.opacity(0.45) : Color.white.opacity(0.06),
-                        lineWidth: isSelected ? 1.2 : 1
-                    )
+                    .stroke(selected ? OttoColor.fog2.opacity(0.55) : OttoColor.fog3.opacity(0.08),
+                            lineWidth: selected ? 1.2 : 1)
             )
+            .shadow(color: selected ? OttoColor.fog2.opacity(0.30) : .black.opacity(0.20),
+                    radius: selected ? 18 : 10, x: 0, y: 6)
         }
         .buttonStyle(.plain)
     }
 }
 
-private struct MockProfileRow: View {
+private struct ProfileGlassRow: View {
     let icon: String
     let label: String
+    let count: String?
 
     var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: icon)
-                .font(.system(size: 15, weight: .light))
-                .foregroundStyle(OttoColor.orange.opacity(0.85))
-                .frame(width: 24)
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(LinearGradient(
+                        colors: [OttoColor.accentWarm.opacity(0.20), OttoColor.fog1.opacity(0.10)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing))
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundStyle(OttoColor.accentWarm)
+            }
+            .frame(width: 32, height: 32)
+
             Text(label)
-                .font(OttoFont.body(15, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.88))
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(OttoColor.ink)
             Spacer()
+            if let count {
+                Text(count)
+                    .font(OttoFont.mono(13))
+                    .foregroundStyle(OttoColor.ink3)
+            }
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .light))
-                .foregroundStyle(Color.white.opacity(0.3))
+                .font(.system(size: 11, weight: .light))
+                .foregroundStyle(OttoColor.ink3)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(.ultraThinMaterial)
         )
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(LinearGradient(
+                    colors: [Color(red: 30/255, green: 44/255, blue: 72/255).opacity(0.45),
+                             Color(red: 16/255, green: 26/255, blue: 46/255).opacity(0.65)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing))
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                .stroke(OttoColor.fog3.opacity(0.08), lineWidth: 1)
         )
-    }
-}
-
-// Reusable header used by history/profile to match ActiveSessionView's look.
-@ViewBuilder
-private func sessionHeader(title: String, subtitle: String) -> some View {
-    VStack(spacing: 8) {
-        Text(title)
-            .font(OttoFont.serif(42, weight: .semibold))
-            .foregroundStyle(Color.white)
-        Text(subtitle)
-            .font(OttoFont.body(11, weight: .regular))
-            .tracking(3.85)
-            .foregroundStyle(Color.white.opacity(0.4))
     }
 }
 
@@ -618,12 +1088,8 @@ struct CameraScanView: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-
-            // Background: live camera on device, styled placeholder on simulator
-            // so we don't spin up AVCaptureSession (crashes / hangs in sim).
             cameraBackground
 
-            // Top-left close — always hittable, not covered by camera layer.
             VStack {
                 HStack {
                     Button {
@@ -631,10 +1097,10 @@ struct CameraScanView: View {
                     } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Color.white)
+                            .foregroundStyle(OttoColor.ink)
                             .frame(width: 44, height: 44)
                             .background(Circle().fill(.ultraThinMaterial))
-                            .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
+                            .overlay(Circle().stroke(OttoColor.fog3.opacity(0.20), lineWidth: 1))
                             .shadow(color: .black.opacity(0.5), radius: 10)
                     }
                     .buttonStyle(.plain)
@@ -647,15 +1113,14 @@ struct CameraScanView: View {
 
                 Spacer()
 
-                // Shutter button — disabled on simulator.
                 Button {
                     #if os(iOS) && !targetEnvironment(simulator)
                     Task { _ = await camera.capture() }
                     #endif
                 } label: {
                     ZStack {
-                        Circle().stroke(Color.white, lineWidth: 3).frame(width: 72, height: 72)
-                        Circle().fill(Color.white.opacity(isSimulator ? 0.35 : 1.0))
+                        Circle().stroke(OttoColor.ink, lineWidth: 3).frame(width: 72, height: 72)
+                        Circle().fill(OttoColor.ink.opacity(isSimulator ? 0.35 : 1.0))
                             .frame(width: 58, height: 58)
                     }
                 }
@@ -692,13 +1157,13 @@ struct CameraScanView: View {
         VStack(spacing: 12) {
             Image(systemName: "camera.fill")
                 .font(.system(size: 44, weight: .light))
-                .foregroundStyle(Color.white.opacity(0.6))
+                .foregroundStyle(OttoColor.ink2)
             Text("Camera access needed")
                 .font(OttoFont.body(15, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.85))
+                .foregroundStyle(OttoColor.ink)
             Text("Enable in Settings to scan tools & parts.")
                 .font(OttoFont.body(13))
-                .foregroundStyle(Color.white.opacity(0.5))
+                .foregroundStyle(OttoColor.ink3)
         }
         .multilineTextAlignment(.center)
         .padding(.horizontal, 40)
@@ -706,25 +1171,20 @@ struct CameraScanView: View {
 
     private var simulatorPlaceholder: some View {
         ZStack {
-            AmbientBackground()
-                .ignoresSafeArea()
+            OttoAtmosphere()
             VStack(spacing: 14) {
                 Image(systemName: "camera.viewfinder")
                     .font(.system(size: 50, weight: .ultraLight))
-                    .foregroundStyle(Color.white.opacity(0.5))
-                Text("CAMERA UNAVAILABLE IN SIMULATOR")
-                    .font(OttoFont.mono(11, weight: .medium))
-                    .tracking(2.4)
-                    .foregroundStyle(Color.white.opacity(0.55))
+                    .foregroundStyle(OttoColor.ink2)
+                OttoEyebrow(text: "Camera unavailable in simulator")
                 Text("Run on a real device to scan tools and parts.")
                     .font(OttoFont.body(13))
-                    .foregroundStyle(Color.white.opacity(0.4))
+                    .foregroundStyle(OttoColor.ink3)
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, 40)
         }
     }
-
 }
 
 #Preview {

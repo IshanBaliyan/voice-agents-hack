@@ -197,47 +197,28 @@ final class PartsStore {
     }
 }
 
-// MARK: - Picker tab root
+// MARK: - Picker (embeddable — used inside Otto/ExplodedView)
 
-struct EnginesView: View {
+struct EnginesPicker: View {
     @State private var activeEngine: EngineEntry?
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                EnginePalette.background.ignoresSafeArea()
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        header
-                        ForEach(EngineEntry.all) { engine in
-                            Button { activeEngine = engine } label: {
-                                engineCard(engine)
-                            }
-                            .buttonStyle(.plain)
-                        }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                ForEach(EngineEntry.all) { engine in
+                    Button { activeEngine = engine } label: {
+                        engineCard(engine)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 16)
-                    .padding(.bottom, 32)
+                    .buttonStyle(.plain)
                 }
             }
-            .preferredColorScheme(.dark)
-            .navigationBarHidden(true)
-            .fullScreenCover(item: $activeEngine) { engine in
-                EngineDetailView(engine: engine)
-            }
+            .padding(.horizontal, 22)
+            .padding(.top, 4)
+            .padding(.bottom, 12)
         }
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Engine Library")
-                .font(.system(size: 28, weight: .heavy))
-                .foregroundStyle(EnginePalette.primaryText)
-                .kerning(-0.5)
-            Text("Interactive 3D reference models. Select an engine to explore parts and source replacements.")
-                .font(.footnote)
-                .foregroundStyle(EnginePalette.secondaryText)
+        .scrollIndicators(.hidden)
+        .fullScreenCover(item: $activeEngine) { engine in
+            EngineDetailView(engine: engine)
         }
     }
 
@@ -245,29 +226,35 @@ struct EnginesView: View {
         HStack(alignment: .top, spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(EnginePalette.accent.opacity(0.18))
-                    .frame(width: 58, height: 58)
+                    .fill(OttoColor.accent.opacity(0.18))
+                    .frame(width: 52, height: 52)
                 Image(systemName: engine.iconSystemName)
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(EnginePalette.accent)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(OttoColor.accent)
             }
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(engine.title)
-                    .font(.headline)
-                    .foregroundStyle(EnginePalette.primaryText)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(OttoColor.ink)
                 Text(engine.subtitle)
-                    .font(.footnote)
-                    .foregroundStyle(EnginePalette.secondaryText)
+                    .font(.system(size: 12))
+                    .foregroundStyle(OttoColor.ink3)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(EnginePalette.secondaryText)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(OttoColor.ink4)
         }
-        .padding(16)
-        .background(EnginePalette.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(OttoColor.fog2.opacity(0.22), lineWidth: 1)
+                )
+        )
     }
 }
 
