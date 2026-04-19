@@ -18,8 +18,9 @@ Protocol (per WebSocket session):
         {"type": "system", "data": ""}
 
     Server → Client (responses):
-        {"timestamp": <ms>, "type": "audio", "data": "<base64 PCM16>"}
-        {"timestamp": <ms>, "type": "text",  "data": "<base64 UTF-8>"}
+        {"timestamp": <ms>, "type": "token", "data": "<base64 UTF-8>"}  (streamed, per decoded token)
+        {"timestamp": <ms>, "type": "audio", "data": "<base64 PCM16>"}  (final TTS blob)
+        {"timestamp": <ms>, "type": "text",  "data": "<base64 UTF-8>"}  (fallback if TTS fails)
 
 Environment variables:
     CACTUS_PYTHON_PATH  — path to cactus python directory
@@ -466,11 +467,34 @@ class _CactusSession:
             handle = self._handle
             pcm_for_complete = pcm_data
 
+            # Token streaming: cactus_complete invokes on_token from the worker
+            # thread as each token is decoded. We hop back to the event loop
+            # via call_soon_threadsafe and push a {"type":"token", ...} frame
+            # into the response queue so the relay → iOS client sees partial
+            # text immediately, before the final TTS audio blob arrives.
+            response_loop = asyncio.get_running_loop()
+            response_queue = self._response_queue
+            stream_started = time.monotonic()
+
+            def on_token(token: str, _token_id: int) -> None:
+                if not token:
+                    return
+                msg = {
+                    "timestamp": int(time.time() * 1000),
+                    "type": "token",
+                    "data": base64.b64encode(token.encode("utf-8")).decode(),
+                }
+                response_loop.call_soon_threadsafe(response_queue.put_nowait, msg)
+
             raw_json = await loop.run_in_executor(
                 _executor,
                 lambda: cactus_complete(
-                    handle, messages_json, options_json, None, None, pcm_for_complete
+                    handle, messages_json, options_json, None, on_token, pcm_for_complete
                 ),
+            )
+            logger.info(
+                f"Streaming inference finished in "
+                f"{(time.monotonic() - stream_started) * 1000:.0f} ms"
             )
             result = json.loads(raw_json)
             _log_cactus_debug(result)
