@@ -1,0 +1,49 @@
+[project]
+name = "cactus-server"
+version = "1.0.0"
+description = "Cactus model server + minimal relay for auditory navigation"
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    "fastapi>=0.116.1",
+    "uvicorn>=0.35.0",
+    "websockets>=13.0.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.11.7",
+    "starlette>=0.47.3",
+    "anyio>=4.10.0",
+    "typing-extensions>=4.15.0",
+    "pillow>=11.3.0",
+    "kokoro>=0.9.4",
+    "scipy>=1.13.0",
+    "soundfile>=0.12.1",
+    "kokoro-onnx>=0.5.0",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.14.1",
+    "ruff>=0.9.4",
+    "pytest-asyncio>=1.2.0",
+    "pytest>=8.4.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# pyproject.toml lives inside the cactus_server/ package directory itself, so
+# point hatch at the parent so "cactus_server" resolves to this directory.
+[tool.hatch.build]
+sources = [".."]
+
+[tool.hatch.build.targets.wheel]
+packages = ["cactus_server"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "*.py",
+    "pyproject.toml",
+    "Makefile",
+]
