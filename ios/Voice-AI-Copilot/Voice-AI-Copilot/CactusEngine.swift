@@ -93,18 +93,48 @@ final class CactusEngine: ObservableObject {
         partial = ""
 
         // --- [stage 1] sanity check image path --------------------------------------------------
+        // Cactus's vision encoder uses stb_image, which only decodes JPEG/PNG/BMP/GIF/TGA/PSD/HDR/PIC.
+        // HEIC is unsupported — if we hand it a HEIC file stb_image throws and prefill dies silently
+        // with an empty cactus_get_last_error. So we check the magic bytes here and refuse HEIC
+        // rather than letting the native side explode.
         var safeImagePath: String? = nil
+        var imageDiag: String = "none"
         if let imagePath {
-            if FileManager.default.fileExists(atPath: imagePath) {
-                safeImagePath = imagePath
+            if let probe = probeImageFile(imagePath) {
+                imageDiag = "format=\(probe.format) bytes=\(probe.size) magic=\(probe.magicHex)"
+                log.info("complete.stage1.image — path=\(imagePath, privacy: .public) \(imageDiag, privacy: .public)")
+                if probe.stbiSupported {
+                    safeImagePath = imagePath
+                } else {
+                    imageDiag += " REJECTED_UNSUPPORTED"
+                    log.error("complete.stage1.image — REJECTED format=\(probe.format, privacy: .public) not supported by stb_image; dropping to audio-only")
+                }
             } else {
-                log.notice("complete.stage1.image — dropped missing imagePath=\(imagePath, privacy: .public)")
+                imageDiag = "unreadable"
+                log.notice("complete.stage1.image — dropped (missing or unreadable) imagePath=\(imagePath, privacy: .public)")
             }
         }
 
         // --- [stage 2] build messages + options -------------------------------------------------
         let messagesJson = buildMessagesJson(userPrompt: userPrompt, imagePath: safeImagePath)
         let options = #"{"max_tokens":200,"temperature":0.2,"top_p":0.9,"stop":["<end_of_turn>","<|end|>","</s>"]}"#
+
+        // Round-trip: verify the image path survives JSON encoding intact. If it doesn't, we
+        // know the bug is Swift-side escaping, not Cactus. If it does, the bug is downstream.
+        if let safeImagePath {
+            if let parsed = try? JSONSerialization.jsonObject(with: Data(messagesJson.utf8)) as? [[String: Any]],
+               let userMsg = parsed.first(where: { ($0["role"] as? String) == "user" }),
+               let imgs = userMsg["images"] as? [String],
+               let first = imgs.first {
+                let match = (first == safeImagePath)
+                log.info("complete.stage2.roundtrip — match=\(match) sent=\(safeImagePath, privacy: .public) parsed=\(first, privacy: .public)")
+                if !match {
+                    log.error("complete.stage2.roundtrip MISMATCH — JSON encoding mutated the path")
+                }
+            } else {
+                log.error("complete.stage2.roundtrip — could not re-parse our own JSON; shape=\(messagesJson, privacy: .public)")
+            }
+        }
 
         // --- [stage 3] capture memory + pre-call state ------------------------------------------
         let avail0 = availableMemoryMB()
@@ -143,7 +173,7 @@ final class CactusEngine: ObservableObject {
             let stage = firstToken == nil ? "PREFILL (never produced a token)" : "GENERATION (died after \(tokens) tokens)"
             let detail = "cactus_complete FAILED in \(stage) after \(String(format: "%.2f", dt))s ttft=\(ttft.map { String(format: "%.2f", $0) } ?? "nil") availableMB=\(avail1) footprintMB=\(footprint1) swiftErr=\(error.localizedDescription) cactusErr=\(cactusErr)"
             log.error("complete.stage4.FAILED — \(detail, privacy: .public)")
-            partial.append("\n\n[error] \(cactusErr.isEmpty ? error.localizedDescription : cactusErr)\n\n[diag] stage=\(stage) took=\(String(format: "%.2f", dt))s availableMB=\(avail1) footprintMB=\(footprint1)")
+            partial.append("\n\n[error] \(cactusErr.isEmpty ? error.localizedDescription : cactusErr)\n\n[diag] stage=\(stage) took=\(String(format: "%.2f", dt))s availableMB=\(avail1) footprintMB=\(footprint1)\n[image] \(imageDiag)\n[audio] pcmBytes=\(pcmData?.count ?? 0)")
         }
 
         isGenerating = false
@@ -161,7 +191,12 @@ final class CactusEngine: ObservableObject {
             ["role": "system", "content": "You are a concise, helpful assistant. Answer briefly in plain English."],
             userMessage
         ]
-        let data = try! JSONSerialization.data(withJSONObject: obj)
+        // `.withoutEscapingSlashes` is critical: Cactus's FFI has a hand-rolled JSON parser that
+        // does NOT un-escape `\/` back to `/`. Without this option, `JSONSerialization` writes
+        // image paths as `"\/private\/var\/..."`, Cactus `substr`s that literal string, passes
+        // it to `std::filesystem::absolute` + `stbi_load`, and prefill dies with
+        // `Failed to load image: /\/private\/var\/...`.
+        let data = try! JSONSerialization.data(withJSONObject: obj, options: [.withoutEscapingSlashes])
         return String(data: data, encoding: .utf8)!
     }
 
@@ -199,6 +234,46 @@ final class CactusEngine: ObservableObject {
     /// number that matters for E4B — if this is <5 GB before init, std::bad_alloc is expected.
     private func availableMemoryMB() -> Int {
         Int(os_proc_available_memory() / (1024 * 1024))
+    }
+
+    /// Reads the first bytes of the image file, identifies the format by magic number, and
+    /// reports whether stb_image can decode it. Cactus's vision encoder uses stb_image, not
+    /// CoreImage, so HEIC is unsupported even though iOS writes it fine.
+    private struct ImageProbe {
+        let size: Int
+        let magicHex: String
+        let format: String
+        let stbiSupported: Bool
+    }
+    private func probeImageFile(_ path: String) -> ImageProbe? {
+        guard let handle = FileHandle(forReadingAtPath: path) else { return nil }
+        defer { try? handle.close() }
+        let head = handle.readData(ofLength: 12)
+        let attr = try? FileManager.default.attributesOfItem(atPath: path)
+        let size = (attr?[.size] as? Int) ?? -1
+        guard !head.isEmpty else { return nil }
+        let hex = head.prefix(8).map { String(format: "%02X", $0) }.joined(separator: " ")
+
+        // Magic number sniffing — same set stb_image supports, plus HEIC (rejected).
+        let bytes = [UInt8](head)
+        let (format, supported): (String, Bool)
+        if bytes.count >= 3, bytes[0] == 0xFF, bytes[1] == 0xD8, bytes[2] == 0xFF {
+            (format, supported) = ("JPEG", true)
+        } else if bytes.count >= 8, bytes[0] == 0x89, bytes[1] == 0x50, bytes[2] == 0x4E, bytes[3] == 0x47 {
+            (format, supported) = ("PNG", true)
+        } else if bytes.count >= 3, bytes[0] == 0x47, bytes[1] == 0x49, bytes[2] == 0x46 {
+            (format, supported) = ("GIF", true)
+        } else if bytes.count >= 2, bytes[0] == 0x42, bytes[1] == 0x4D {
+            (format, supported) = ("BMP", true)
+        } else if bytes.count >= 12,
+                  bytes[4] == 0x66, bytes[5] == 0x74, bytes[6] == 0x79, bytes[7] == 0x70,
+                  (bytes[8] == 0x68 || bytes[8] == 0x6D) {
+            // "ftyp" box with brand starting 'h'(heic/heix) or 'm'(mif1, msf1 used by HEIF).
+            (format, supported) = ("HEIC/HEIF", false)
+        } else {
+            (format, supported) = ("unknown", false)
+        }
+        return ImageProbe(size: size, magicHex: hex, format: format, stbiSupported: supported)
     }
 
     /// Current resident memory. mach task_info for phys_footprint.

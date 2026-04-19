@@ -47,7 +47,13 @@ final class CameraCapture: NSObject, ObservableObject {
                 guard let self, self.session.isRunning else {
                     cont.resume(returning: nil); return
                 }
-                let settings = AVCapturePhotoSettings()
+                // Force JPEG. Default AVCapturePhotoSettings produces HEIC on modern iPhones,
+                // but Cactus's vision encoder uses stb_image which can't decode HEIC — it would
+                // throw during prefill and kill the completion with an empty error string.
+                let jpegSupported = self.photoOutput.availablePhotoCodecTypes.contains(.jpeg)
+                let settings: AVCapturePhotoSettings = jpegSupported
+                    ? AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.jpeg])
+                    : AVCapturePhotoSettings()
                 let handler = PhotoDelegate { url in
                     Task { @MainActor in self.delegate = nil }
                     cont.resume(returning: url)
