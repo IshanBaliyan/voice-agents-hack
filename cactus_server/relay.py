@@ -184,9 +184,17 @@ class GeneralWebSocketRelay:
             while True:
                 message = await llm_handler.receive_message(audio_format)
                 for chunk in self._create_chunks(message):
-                    logger.debug(
-                        f"Forwarding {chunk.get('type')} chunk to client {client_id}"
-                    )
+                    chunk_type = chunk.get("type")
+                    if chunk_type == "page_image":
+                        logger.info(
+                            f"Forwarding page_image to client {client_id} "
+                            f"({len(chunk.get('data') or '')} base64 chars, "
+                            f"{chunk.get('source')} p.{chunk.get('page')})"
+                        )
+                    else:
+                        logger.debug(
+                            f"Forwarding {chunk_type} chunk to client {client_id}"
+                        )
                     await websocket.send_text(json.dumps(chunk))
 
         except WebSocketDisconnect:

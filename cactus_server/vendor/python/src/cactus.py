@@ -609,9 +609,17 @@ def cactus_transcribe(model, audio_path, prompt, options_json, callback, pcm_dat
 
 def cactus_embed(model, text, normalize):
     """Generates a text embedding. Returns list of floats."""
-    buf = (ctypes.c_float * 4096)()
+    # The C side expects byte counts for the size arg; Gemma 4's embedding
+    # dim is 2560 (10 240 bytes). Allocate 8 192 floats = 32 768 bytes so
+    # larger upstream models still fit.
+    n_floats = 8192
+    buf = (ctypes.c_float * n_floats)()
     dim = ctypes.c_size_t()
-    rc = _lib.cactus_embed(model, _enc(text), buf, 4096, ctypes.byref(dim), normalize)
+    rc = _lib.cactus_embed(
+        model, _enc(text), buf,
+        n_floats * ctypes.sizeof(ctypes.c_float),
+        ctypes.byref(dim), normalize,
+    )
     if rc < 0:
         raise RuntimeError(_err("Embedding failed"))
     return list(buf[:dim.value])
@@ -619,9 +627,14 @@ def cactus_embed(model, text, normalize):
 
 def cactus_image_embed(model, image_path):
     """Generates an image embedding. Returns list of floats."""
-    buf = (ctypes.c_float * 4096)()
+    n_floats = 8192
+    buf = (ctypes.c_float * n_floats)()
     dim = ctypes.c_size_t()
-    rc = _lib.cactus_image_embed(model, _enc(image_path), buf, 4096, ctypes.byref(dim))
+    rc = _lib.cactus_image_embed(
+        model, _enc(image_path), buf,
+        n_floats * ctypes.sizeof(ctypes.c_float),
+        ctypes.byref(dim),
+    )
     if rc < 0:
         raise RuntimeError(_err("Image embedding failed"))
     return list(buf[:dim.value])
@@ -629,9 +642,14 @@ def cactus_image_embed(model, image_path):
 
 def cactus_audio_embed(model, audio_path):
     """Generates an audio embedding. Returns list of floats."""
-    buf = (ctypes.c_float * 4096)()
+    n_floats = 8192
+    buf = (ctypes.c_float * n_floats)()
     dim = ctypes.c_size_t()
-    rc = _lib.cactus_audio_embed(model, _enc(audio_path), buf, 4096, ctypes.byref(dim))
+    rc = _lib.cactus_audio_embed(
+        model, _enc(audio_path), buf,
+        n_floats * ctypes.sizeof(ctypes.c_float),
+        ctypes.byref(dim),
+    )
     if rc < 0:
         raise RuntimeError(_err("Audio embedding failed"))
     return list(buf[:dim.value])

@@ -28,13 +28,14 @@ export GEMMA4_MODEL_PATH ?= $(CURDIR)/models/gemma-4-E4B-it
 # set it explicitly only if you want to point at a different cactus checkout.
 export CACTUS_MODEL_SERVER_URL ?= ws://localhost:$(MODEL_PORT)/ws/cactus
 
-.PHONY: help check-uv sync sync-dev download-model model relay stop-model stop-relay stop clean
+.PHONY: help check-uv sync sync-dev download-model build-index model relay stop-model stop-relay stop clean
 
 help:
 	@echo "Targets:"
 	@echo "  sync            Install runtime dependencies with uv"
 	@echo "  sync-dev        Install runtime + dev dependencies"
 	@echo "  download-model  Download Gemma 4 E4B weights into ./models/"
+	@echo "  build-index     Parse ./docs/*.pdf with docling and build the Qdrant RAG index"
 	@echo "  model           Run the Cactus model server (port $(MODEL_PORT))"
 	@echo "  relay           Run the client-facing relay (port $(RELAY_PORT))"
 	@echo "  stop-model      Kill whatever is listening on :$(MODEL_PORT)"
@@ -58,6 +59,13 @@ sync-dev: check-uv
 download-model: check-uv
 	$(UV) run --project "$(CURDIR)" --with huggingface_hub \
 		python "$(CURDIR)/scripts/download_model.py"
+
+# One-shot offline ingestion: docling-parse every PDF in ./docs/ and write
+# an embedded Qdrant database to ./qdrant_data/. Safe to re-run — unchanged
+# PDFs are skipped via a sidecar manifest. Use `make build-index ARGS=--force`
+# to re-ingest everything from scratch.
+build-index: check-uv
+	cd "$(PARENT_DIR)" && $(UV_RUN) python -m cactus_server.scripts.build_rag_index $(ARGS)
 
 model: check-uv
 	cd "$(PARENT_DIR)" && $(UV_RUN) uvicorn cactus_server.server:app \
