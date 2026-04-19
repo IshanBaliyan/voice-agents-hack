@@ -100,7 +100,15 @@ struct CameraPreview: UIViewRepresentable {
 // Falls back to transparent if not authorized so the UI behind still shows.
 
 struct SessionCameraBackdrop: View {
-    @StateObject private var camera = CameraController()
+    /// Optional externally-owned camera — passed in by ActiveSessionView so
+    /// the same CameraController that drives the preview can also be used by
+    /// OttoStore to snap a still when the mic is released. Falls back to a
+    /// locally-owned controller if nothing is provided.
+    @ObservedObject var camera: CameraController
+
+    init(camera: CameraController) {
+        self.camera = camera
+    }
 
     var body: some View {
         Group {

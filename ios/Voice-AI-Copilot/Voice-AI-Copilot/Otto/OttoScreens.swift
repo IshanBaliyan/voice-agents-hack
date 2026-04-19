@@ -147,8 +147,16 @@ struct VoiceHomeView: View {
 
 struct ActiveSessionView: View {
     @EnvironmentObject var store: OttoStore
+    @EnvironmentObject var engine: InferenceController
+
+    @State private var presentedPage: RetrievedPage?
 
     private var isRecording: Bool { store.voice == .listening }
+
+    /// RAG pages come from the remote relay only. Empty in local mode.
+    private var retrievedPages: [RetrievedPage] {
+        engine.remote.retrievedPages
+    }
 
     var body: some View {
         ZStack {
@@ -187,13 +195,17 @@ struct ActiveSessionView: View {
                     .padding(.bottom, 28)
             }
         }
+        .animation(.easeInOut(duration: 0.25), value: retrievedPages.count)
+        .sheet(item: $presentedPage) { page in
+            OttoPageViewerSheet(page: page)
+        }
     }
 
     @ViewBuilder
     private var cameraViewport: some View {
         ZStack(alignment: .bottom) {
-            #if os(iOS)
-            SessionCameraBackdrop()
+            #if os(iOS) && !targetEnvironment(simulator)
+            SessionCameraBackdrop(camera: store.camera)
             #else
             Color.black
             #endif
@@ -219,6 +231,15 @@ struct ActiveSessionView: View {
                 if store.voice == .speaking {
                     speakingActions
                         .padding(.horizontal, 20)
+                }
+
+                // RAG citation chips — tap to open the source page. Stays
+                // visible after Otto stops speaking so the user can still
+                // reference what was cited.
+                if !retrievedPages.isEmpty {
+                    citationChipRow
+                        .padding(.horizontal, 20)
+                        .transition(.opacity)
                 }
             }
             .padding(.bottom, 22)
@@ -275,10 +296,16 @@ struct ActiveSessionView: View {
                     .foregroundStyle(OttoColor.ink2)
 
             case .speaking:
-                let a = store.currentAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
+                // Prefer the live streaming partial (tokens as they arrive
+                // from the relay) over `currentAnswer`, which is only set
+                // after the full turn completes. Falls back to currentAnswer
+                // once the turn is done.
+                let streaming = engine.partial.trimmingCharacters(in: .whitespacesAndNewlines)
+                let finalized = store.currentAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
+                let a = !streaming.isEmpty ? streaming : finalized
                 OttoCard(padding: 18, corner: 22) {
                     VStack(alignment: .leading, spacing: 10) {
-                        OttoEyebrow(text: "Otto · on-device")
+                        OttoEyebrow(text: engine.mode == .remote ? "Otto · Mac relay" : "Otto · on-device")
                         Text(a.isEmpty ? "Speaking…" : a)
                             .font(.system(size: 16, weight: .light))
                             .foregroundStyle(OttoColor.ink)
@@ -303,6 +330,47 @@ struct ActiveSessionView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 56)
         .animation(.easeInOut(duration: 0.2), value: store.voice)
+    }
+
+    // Horizontally scrolling list of citation chips sourced from the Mac
+    // server's RAG hits. Tapping a chip opens the corresponding PDF page in
+    // a modal viewer (OttoPageViewerSheet).
+    @ViewBuilder private var citationChipRow: some View {
+        VStack(spacing: 6) {
+            OttoEyebrow(text: "SOURCES · TAP TO VIEW", color: OttoColor.ink3)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(retrievedPages) { page in
+                        Button {
+                            presentedPage = page
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text("[\(page.citation)]")
+                                    .font(OttoFont.mono(11, weight: .bold))
+                                    .foregroundStyle(OttoColor.accentWarm)
+                                Text("\(page.source) · p. \(page.page)")
+                                    .font(OttoFont.body(12))
+                                    .foregroundStyle(OttoColor.ink)
+                                    .lineLimit(1)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(.ultraThinMaterial)
+                            )
+                            .overlay(
+                                Capsule(style: .continuous)
+                                    .stroke(OttoColor.fog3.opacity(0.25), lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Reference \(page.citation), \(page.source) page \(page.page). Tap to view.")
+                    }
+                }
+            }
+        }
     }
 
     // "Start guide / Not now" chips appear while Otto is speaking — matches
@@ -1183,6 +1251,49 @@ struct CameraScanView: View {
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, 40)
+        }
+    }
+}
+
+// MARK: - PDF page viewer
+// Shown when the user taps a citation chip in ActiveSessionView. Displays
+// the retrieved PDF page at full size with pinch + double-tap to zoom.
+
+struct OttoPageViewerSheet: View {
+    let page: RetrievedPage
+    @Environment(\.dismiss) private var dismiss
+    @State private var zoom: CGFloat = 1.0
+
+    var body: some View {
+        NavigationStack {
+            ScrollView([.horizontal, .vertical], showsIndicators: true) {
+                Image(uiImage: page.image)
+                    .resizable()
+                    .scaledToFit()
+                    .scaleEffect(zoom)
+                    .gesture(
+                        MagnificationGesture()
+                            .onChanged { zoom = max(1.0, min($0, 4.0)) }
+                    )
+                    .onTapGesture(count: 2) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            zoom = zoom > 1.0 ? 1.0 : 2.0
+                        }
+                    }
+            }
+            .background(Color.white)
+            .navigationTitle("[\(page.citation)] \(page.source)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Text("p. \(page.page) · \(String(format: "%.2f", page.score))")
+                        .font(OttoFont.mono(10))
+                        .foregroundStyle(Color.secondary)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
         }
     }
 }

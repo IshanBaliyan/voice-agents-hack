@@ -1,6 +1,25 @@
 import Foundation
 import Combine
+import UIKit
 import os
+
+/// A PDF page returned by the Mac server's RAG pipeline, along with the
+/// metadata needed to render it as a citation chip that opens the page in a
+/// modal viewer. `citation` is 1-indexed so it lines up with `[N]` markers
+/// the model may emit inline.
+struct RetrievedPage: Identifiable, Equatable {
+    let id = UUID()
+    let image: UIImage
+    let source: String
+    let page: Int
+    let score: Double
+    let query: String
+    let citation: Int
+
+    static func == (lhs: RetrievedPage, rhs: RetrievedPage) -> Bool {
+        lhs.id == rhs.id
+    }
+}
 
 // WebSocket-backed inference engine. Mirrors CactusEngine's public API so it
 // can be swapped in wherever CactusEngine is used today. Protocol stolen from
@@ -30,6 +49,10 @@ final class RemoteRelayEngine: ObservableObject {
     /// property is a coalesced SwiftUI-friendly mirror of the most recent one.
     @Published var lastAudioChunk: Data?
     var onAudioChunk: ((Data) -> Void)?
+
+    /// RAG hits the server retrieved for the current turn. Cleared when a
+    /// new turn begins, then appended as `page_image` frames stream in.
+    @Published var retrievedPages: [RetrievedPage] = []
 
     private var serverURL: URL
     private var task: URLSessionWebSocketTask?
@@ -110,6 +133,39 @@ final class RemoteRelayEngine: ObservableObject {
         isGenerating = true
         partial = ""
         generationNonce &+= 1
+        retrievedPages = []
+    }
+
+    private func handlePageImage(_ json: [String: Any]) {
+        guard
+            let payload = json["data"] as? String,
+            let bytes = Data(base64Encoded: payload),
+            let image = UIImage(data: bytes)
+        else { return }
+
+        let source = json["source"] as? String ?? ""
+        let page = (json["page"] as? Int) ?? Int(json["page"] as? Double ?? 0)
+        let score = (json["score"] as? Double) ?? Double(json["score"] as? Int ?? 0)
+        let query = json["query"] as? String ?? ""
+        let rank = (json["rank"] as? Int) ?? Int(json["rank"] as? Double ?? 0)
+        let citationRaw = (json["citation"] as? Int) ?? Int(json["citation"] as? Double ?? 0)
+        let citation = citationRaw == 0 ? rank + 1 : citationRaw
+
+        // Guard against stragglers from a prior turn sneaking in after
+        // beginTurn() already cleared the list.
+        if let existing = retrievedPages.first, existing.query != query {
+            retrievedPages = []
+        }
+
+        retrievedPages.append(RetrievedPage(
+            image: image,
+            source: source,
+            page: page,
+            score: score,
+            query: query,
+            citation: citation
+        ))
+        retrievedPages.sort { $0.citation < $1.citation }
     }
 
     // Abandon whatever the relay is doing. We can't tell the Mac server to
@@ -236,7 +292,10 @@ final class RemoteRelayEngine: ObservableObject {
             return
         }
 
-        if type == "page_image" { return } // RAG hits not wired here yet.
+        if type == "page_image" {
+            handlePageImage(json)
+            return
+        }
 
         guard let payload = json["data"] as? String else { return }
 

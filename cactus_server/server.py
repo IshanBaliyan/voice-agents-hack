@@ -15,6 +15,7 @@ Protocol (per WebSocket session):
     Client → Server (messages):
         {"type": "audio",  "data": "<base64>", "audio_format": "pcm16_base64"}
         {"type": "image",  "data": "<base64>"}
+        {"type": "text",   "data": "<raw utf-8 string>"}
         {"type": "system", "data": ""}
 
     Server → Client (responses):
@@ -354,6 +355,10 @@ class _CactusSession:
         self._audio_buffer: List[bytes] = []
         self._last_audio_time: float = 0.0
         self._pending_images: List[str] = []
+        # Populated when the client sends a `text` message (e.g. iOS has
+        # already run on-device STT). Takes priority over audio during a
+        # turn — we skip re-transcribing when the text is already known.
+        self._pending_text: Optional[str] = None
 
         self._conversation: List[Dict[str, Any]] = [
             {"role": "system", "content": _SYSTEM_PROMPT}
@@ -508,6 +513,13 @@ class _CactusSession:
             except Exception as exc:
                 logger.warning(f"Failed to decode image: {exc}")
 
+        elif msg_type == "text":
+            # iOS remote-relay path sends already-transcribed text (raw
+            # utf-8, NOT base64). Cache it for the next `system` trigger.
+            if isinstance(b64_data, str) and b64_data.strip():
+                self._pending_text = b64_data.strip()
+                logger.info(f"Text received: {self._pending_text!r}")
+
         elif msg_type == "system":
             self._force_process_event.set()
 
@@ -535,6 +547,8 @@ class _CactusSession:
                     async with self._audio_lock:
                         has_audio = bool(self._audio_buffer)
                         silent_for = time.monotonic() - self._last_audio_time
+                    # Text-based turns rely on the explicit `system` trigger
+                    # above; only the silence-based audio path gates here.
                     if not (has_audio and silent_for >= _SILENCE_TRIGGER_SEC):
                         continue
 
@@ -553,7 +567,10 @@ class _CactusSession:
         images = list(self._pending_images)
         self._pending_images.clear()
 
-        if not audio_chunks and not images:
+        pending_text = self._pending_text
+        self._pending_text = None
+
+        if not audio_chunks and not images and not pending_text:
             return
 
         loop = asyncio.get_running_loop()
@@ -571,15 +588,17 @@ class _CactusSession:
                 logger.debug("Audio below silence threshold — skipping")
                 pcm_data = None
 
-        # The merged pass responds only when the user has spoken. An image-only
-        # turn (force-processed with no speech) has no intent to reply to.
-        if pcm_data is None:
+        # A turn needs *some* user intent to respond to — either a text
+        # prompt (remote-relay path) or voiced audio (local STT path).
+        # Image-only or silent audio turns are dropped.
+        if pending_text is None and pcm_data is None:
             _cleanup_files(images)
             return
 
         logger.info(
-            f"Merged turn — {len(images)} image(s) + "
-            f"{len(pcm_data):,} bytes audio, running inference"
+            f"Merged turn — {len(images)} image(s), "
+            f"text={'yes' if pending_text else 'no'}, "
+            f"audio={len(pcm_data) if pcm_data else 0:,} bytes"
         )
 
         # Clear any KV residue from the previous turn (e.g. post-inference
@@ -591,7 +610,7 @@ class _CactusSession:
 
         user_message: Dict[str, Any] = {
             "role": "user",
-            "content": "",
+            "content": pending_text or "",
         }
         if images:
             user_message["images"] = images
@@ -700,12 +719,22 @@ class _CactusSession:
         # Audio has already been streamed sentence-by-sentence via the
         # Kokoro TTS worker during decoding — no bulk TTS step needed here.
 
+        # End-of-turn marker for text clients: carries the final assembled
+        # response and signals them to flip isGenerating=false. Kept separate
+        # from the per-sentence TTS fallback frames above (same "text" type,
+        # but emitted once per turn after decoding completes).
+        await self._response_queue.put({
+            "timestamp": int(time.time() * 1000),
+            "type": "text",
+            "data": base64.b64encode(response_text.encode()).decode(),
+        })
+
         # RAG runs *after* the main inference so the user hears the answer
         # without waiting ~1s for a separate ASR pass. The page_image frame
         # arrives a beat later as supplemental context.
         if _rag_index is not None and cactus_embed is not None:
             try:
-                await self._retrieve_and_send_page(pcm_data)
+                await self._retrieve_and_send_page(response_text)
             except Exception as exc:
                 logger.warning(f"RAG retrieval failed: {exc}")
 
@@ -741,19 +770,19 @@ class _CactusSession:
             raise RuntimeError(result.get("error") or "ASR failed")
         return (result.get("response") or "").strip()
 
-    async def _retrieve_and_send_page(self, pcm_data: bytes) -> None:
+    async def _retrieve_and_send_page(self, query_text: str) -> None:
         assert _rag_index is not None
         loop = asyncio.get_running_loop()
         handle = self._handle
 
-        transcription = await self._transcribe_audio(pcm_data)
-        if not transcription:
-            logger.info("RAG: empty transcription, skipping retrieval")
+        query_text = (query_text or "").strip()
+        if not query_text:
+            logger.info("RAG: empty query, skipping retrieval")
             return
-        logger.info(f"RAG: transcription={transcription!r}")
+        logger.info(f"RAG: query={query_text!r}")
 
         vec = await loop.run_in_executor(
-            _executor, lambda: cactus_embed(handle, transcription, True)
+            _executor, lambda: cactus_embed(handle, query_text, True)
         )
         # Pull a generous top_k and then filter client-side — cheaper than
         # re-querying and lets us show every page above the threshold.
@@ -788,7 +817,7 @@ class _CactusSession:
                 "source": hit["source"],
                 "page": hit["page"],
                 "score": hit["score"],
-                "query": transcription,
+                "query": query_text,
                 "rank": idx,
                 "total": len(kept),
                 "data": base64.b64encode(img_bytes).decode(),

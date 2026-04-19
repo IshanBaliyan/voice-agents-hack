@@ -27,5 +27,5 @@ enum AppModeDefaults {
     // changes. Matches cactus_server/relay.py's /ws endpoint; the
     // `audio_format=pcm16_base64` query param tells the relay how the client
     // will encode mic PCM.
-    static let fallbackRelayURL = "wss://759d-50-175-245-62.ngrok-free.app/ws?audio_format=pcm16_base64"
+    static let fallbackRelayURL = "wss://4e0b-50-175-245-62.ngrok-free.app/ws?audio_format=pcm16_base64"
 }

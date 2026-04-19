@@ -29,14 +29,28 @@ final class GeminiCloudChatService {
 
     // MARK: - Free-form chat
 
-    func answer(userPrompt: String, timeout: TimeInterval = 20) async throws -> String {
+    func answer(userPrompt: String,
+                imagePath: String? = nil,
+                timeout: TimeInterval = 20) async throws -> String {
+        var parts: [[String: Any]] = [["text": userPrompt]]
+        // Attach the captured frame as inline_data if the caller grabbed one.
+        // JPEG compression happened upstream; we just base64 the bytes.
+        if let imagePath,
+           let jpeg = try? Data(contentsOf: URL(fileURLWithPath: imagePath)) {
+            parts.append([
+                "inline_data": [
+                    "mime_type": "image/jpeg",
+                    "data": jpeg.base64EncodedString()
+                ]
+            ])
+        }
         let body: [String: Any] = [
             "systemInstruction": [
                 "parts": [["text": Self.ottoPersona]]
             ],
             "contents": [[
                 "role": "user",
-                "parts": [["text": userPrompt]]
+                "parts": parts
             ]],
             "generationConfig": [
                 "temperature": 0.6,

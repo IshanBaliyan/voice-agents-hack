@@ -132,3 +132,71 @@ final class Speaker: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         }
     }
 }
+
+// MARK: - Streaming PCM16 player
+//
+// Plays raw int16 LE mono PCM at 24kHz (Kokoro's native output) as it arrives
+// from the Mac relay. Mirrors changmin-test-ios-app/AudioManager.playPCM16 but
+// as a self-contained engine so Otto can own it without entangling the
+// recording path.
+@MainActor
+final class PCM16StreamPlayer: ObservableObject {
+    @Published private(set) var isPlaying: Bool = false
+    /// Number of chunks currently queued or playing. Flips to 0 when the
+    /// last scheduled buffer's completion handler fires.
+    @Published private(set) var inFlight: Int = 0
+
+    private let engine = AVAudioEngine()
+    private let node = AVAudioPlayerNode()
+    private let format = AVAudioFormat(commonFormat: .pcmFormatInt16,
+                                       sampleRate: 24_000,
+                                       channels: 1,
+                                       interleaved: true)!
+
+    init() {
+        engine.attach(node)
+        engine.connect(node, to: engine.mainMixerNode, format: format)
+    }
+
+    /// Enqueue a chunk of 16-bit LE mono PCM at 24kHz. Starts the engine and
+    /// the player node lazily on the first chunk of a turn.
+    func enqueue(_ data: Data) {
+        let frames = data.count / 2
+        guard frames > 0,
+              let buffer = AVAudioPCMBuffer(pcmFormat: format,
+                                            frameCapacity: AVAudioFrameCount(frames)),
+              let channel = buffer.int16ChannelData else { return }
+        buffer.frameLength = AVAudioFrameCount(frames)
+        data.withUnsafeBytes { raw in
+            if let src = raw.baseAddress {
+                memcpy(channel[0], src, data.count)
+            }
+        }
+
+        #if os(iOS)
+        try? AVAudioSession.sharedInstance().setCategory(
+            .playback, mode: .spokenAudio, options: [.duckOthers]
+        )
+        try? AVAudioSession.sharedInstance().setActive(true)
+        #endif
+
+        if !engine.isRunning { try? engine.start() }
+
+        inFlight += 1
+        node.scheduleBuffer(buffer) { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                self.inFlight = max(0, self.inFlight - 1)
+                if self.inFlight == 0 { self.isPlaying = false }
+            }
+        }
+        if !node.isPlaying { node.play() }
+        isPlaying = true
+    }
+
+    func stop() {
+        node.stop()
+        inFlight = 0
+        isPlaying = false
+    }
+}

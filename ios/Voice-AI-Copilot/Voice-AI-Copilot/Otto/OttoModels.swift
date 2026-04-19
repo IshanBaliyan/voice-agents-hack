@@ -1,6 +1,9 @@
 import Foundation
 import SwiftUI
 import Combine
+#if os(iOS)
+import UIKit
+#endif
 
 enum OttoRoute: Hashable {
     case home
@@ -35,6 +38,15 @@ final class OttoStore: ObservableObject {
 
     private let recognizer = SpeechRecognizer()
     private let speaker = Speaker()
+    /// Streams raw int16 PCM from the Mac relay to the speaker as it arrives.
+    /// Unused in local mode (CactusEngine has no audio side-channel).
+    let pcmPlayer = PCM16StreamPlayer()
+    /// Shared camera used by both the SessionCameraBackdrop preview and the
+    /// still capture we trigger when the user releases the mic. Optional so
+    /// non-iOS builds (and previews) still compile.
+    #if os(iOS) && !targetEnvironment(simulator)
+    let camera = CameraController()
+    #endif
     // Injected from the root app so mode (local/remote) is shared globally.
     // Until attach(engine:) is called we keep a placeholder so the OttoStore
     // can be created before the view hierarchy injects the real one.
@@ -57,6 +69,16 @@ final class OttoStore: ObservableObject {
     // is in scope. Safe to call multiple times.
     func attach(engine: InferenceController) {
         self.engine = engine
+        // Route every streamed audio chunk from the Mac relay straight into
+        // the player. Flip to .speaking on first chunk so the UI moves off
+        // "Thinking…" the instant audio starts.
+        engine.remote.onAudioChunk = { [weak self] data in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.pcmPlayer.enqueue(data)
+                if self.voice == .thinking { self.voice = .speaking }
+            }
+        }
     }
 
     func warmUp() async {
@@ -83,6 +105,7 @@ final class OttoStore: ObservableObject {
     /// (that's kept in HistoryStore) — only in-memory conversation context.
     func resetSession() {
         speaker.stop()
+        pcmPlayer.stop()
         recognizer.stop()
         partialTranscript = ""
         currentAnswer = ""
@@ -121,8 +144,16 @@ final class OttoStore: ObservableObject {
 
         if !modelReady { await warmUp() }
 
+        // Grab a still from the live camera preview so the model can see
+        // whatever the user was pointing the phone at when they stopped
+        // speaking. Only wired on real iOS hardware — simulator and macOS
+        // skip straight to the text-only path.
+        let imagePath = await captureCurrentFrameIfAvailable()
+
         let prompt = buildPromptFromHistory()
-        let answer = await answerWithTimeoutFallback(prompt: prompt, question: question)
+        let answer = await answerWithTimeoutFallback(
+            prompt: prompt, question: question, imagePath: imagePath
+        )
 
         currentAnswer = answer
         history.append(Turn(role: .otto, text: answer))
@@ -130,10 +161,46 @@ final class OttoStore: ObservableObject {
         // Persist this Q&A turn so the History page can replay it later.
         HistoryStore.shared.saveQA(question: question, answer: answer)
 
+        // Remote mode: Kokoro audio has already been streaming through
+        // pcmPlayer; don't double-speak with AVSpeechSynthesizer. Wait for
+        // the player's queue to drain before going back to idle so the UI
+        // doesn't prematurely flip while audio is still coming out.
+        if engine.mode == .remote {
+            voice = .speaking
+            let waitCapMs = 30_000
+            var waitedMs = 0
+            while (pcmPlayer.isPlaying || pcmPlayer.inFlight > 0) && waitedMs < waitCapMs {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                waitedMs += 100
+            }
+            voice = .idle
+            return
+        }
+
         voice = .speaking
         speaker.speak(answer) { [weak self] in
             Task { @MainActor in self?.voice = .idle }
         }
+    }
+
+    /// Snap a single frame from the shared Otto camera and write it to a
+    /// temp JPEG, returning the path. Returns nil in the simulator, on
+    /// non-iOS platforms, or when capture fails — callers treat nil as
+    /// "text-only turn".
+    private func captureCurrentFrameIfAvailable() async -> String? {
+        #if os(iOS) && !targetEnvironment(simulator)
+        guard let image = await camera.capture() else { return nil }
+        guard let jpeg = image.jpegData(compressionQuality: 0.82) else { return nil }
+        let path = NSTemporaryDirectory() + "otto-turn-\(UUID().uuidString).jpg"
+        do {
+            try jpeg.write(to: URL(fileURLWithPath: path))
+            return path
+        } catch {
+            return nil
+        }
+        #else
+        return nil
+        #endif
     }
 
     // Race the engine against an 8-second timer. If the engine wins, use its
@@ -144,15 +211,47 @@ final class OttoStore: ObservableObject {
     // writing to `partial` after we've switched — but the underlying work
     // (cactusComplete, or the Mac relay turn) can't actually be cancelled,
     // so it runs to completion in the background and its tokens are dropped.
-    private func answerWithTimeoutFallback(prompt: String, question: String) async -> String {
-        enum RaceResult { case local(String); case timedOut }
-
-        let timeout = Self.engineTimeoutSeconds
+    private func answerWithTimeoutFallback(prompt: String, question: String, imagePath: String? = nil) async -> String {
         let localEngine = engine
+
+        // Remote (Mac relay) mode: wait for the relay's answer. No Gemini
+        // fallback — the whole point of remote mode is that the Mac is doing
+        // the inference, so silently handing off to a third service would
+        // mask relay issues and hide what the user actually selected.
+        if engine.mode == .remote {
+            if let imagePath {
+                await localEngine.generate(prompt: prompt, imagePath: imagePath)
+            } else {
+                await localEngine.generate(prompt: prompt)
+            }
+            // RemoteRelayEngine.generate() returns once the WS frames are
+            // sent; tokens stream back asynchronously. Wait for the relay
+            // to finish (isGenerating flips false on end-of-turn text).
+            let maxWaitMs = 60_000
+            var waitedMs = 0
+            while localEngine.isGenerating && waitedMs < maxWaitMs {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                waitedMs += 100
+            }
+            let text = localEngine.partial.trimmingCharacters(in: .whitespacesAndNewlines)
+            if text.isEmpty {
+                return "Sorry — the Mac relay didn't return an answer. Check that it's running."
+            }
+            return text
+        }
+
+        // Local (on-device) mode: race the engine against a short timer and
+        // fall back to Gemini cloud if the phone is too slow or returns empty.
+        enum RaceResult { case local(String); case timedOut }
+        let timeout = Self.engineTimeoutSeconds
 
         let result: RaceResult = await withTaskGroup(of: RaceResult.self) { group in
             group.addTask { @MainActor in
-                await localEngine.generate(prompt: prompt)
+                if let imagePath {
+                    await localEngine.generate(prompt: prompt, imagePath: imagePath)
+                } else {
+                    await localEngine.generate(prompt: prompt)
+                }
                 return .local(localEngine.partial.trimmingCharacters(in: .whitespacesAndNewlines))
             }
             group.addTask {
@@ -169,22 +268,21 @@ final class OttoStore: ObservableObject {
             return text
 
         case .local:
-            // Engine came back fast but empty. Fall through to cloud.
-            print("[Otto][Chat] engine returned empty — asking Gemini cloud")
-            return await cloudAnswer(for: question)
+            print("[Otto][Chat] on-device engine returned empty — asking Gemini cloud")
+            return await cloudAnswer(for: question, imagePath: imagePath)
 
         case .timedOut:
-            print("[Otto][Chat] engine exceeded \(Int(timeout))s — abandoning, routing to Gemini cloud")
+            print("[Otto][Chat] on-device engine exceeded \(Int(timeout))s — abandoning, routing to Gemini cloud")
             engine.abandonCurrent()
-            return await cloudAnswer(for: question)
+            return await cloudAnswer(for: question, imagePath: imagePath)
         }
     }
 
     private let cloudChat = GeminiCloudChatService()
 
-    private func cloudAnswer(for question: String) async -> String {
+    private func cloudAnswer(for question: String, imagePath: String? = nil) async -> String {
         do {
-            return try await cloudChat.answer(userPrompt: question)
+            return try await cloudChat.answer(userPrompt: question, imagePath: imagePath)
         } catch {
             print("[Otto][Chat] cloud fallback also failed: \(error.localizedDescription)")
             return "Sorry — I'm having trouble reaching the answer right now. Could you try asking again?"
