@@ -26,10 +26,13 @@ final class InferenceController: ObservableObject {
 
     private var bag = Set<AnyCancellable>()
 
-    init(local: CactusEngine = CactusEngine(),
-         remote: RemoteRelayEngine = RemoteRelayEngine()) {
-        self.local = local
-        self.remote = remote
+    // No default-arg initializers here — CactusEngine / RemoteRelayEngine are
+    // @MainActor, and default values evaluate in the caller's isolation
+    // context, which can be non-isolated. Building them inside the init body
+    // runs under @MainActor and compiles cleanly.
+    init() {
+        self.local = CactusEngine()
+        self.remote = RemoteRelayEngine()
         let stored = UserDefaults.standard.string(forKey: AppModeDefaults.storageKey)
         self.mode = stored.flatMap(AppMode.init(rawValue:)) ?? .local
         rebind()
