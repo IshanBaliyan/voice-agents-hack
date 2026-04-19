@@ -131,64 +131,63 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Retrieved page (RAG)
+    // MARK: - Retrieved pages (RAG)
+    //
+    // Shown as a compact row of citation chips ([1], [2], …) matching the
+    // `[N]` markers Gemma emits inline. Tapping a chip opens the full page
+    // image in a modal sheet.
 
-    @State private var selectedPageIndex: Int = 0
+    @State private var presentedPage: RetrievedPage?
 
     @ViewBuilder
     private var retrievedPageSection: some View {
         let pages = wsManager.retrievedPages
         if !pages.isEmpty {
-            let clampedIndex = min(selectedPageIndex, pages.count - 1)
-            let current = pages[clampedIndex]
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     Image(systemName: "doc.text.magnifyingglass")
                         .foregroundColor(.accentColor)
-                    Text("\(current.source) · p. \(current.page)")
+                    Text("Sources — tap to view")
                         .font(.caption.weight(.semibold))
                         .foregroundColor(.white)
                     Spacer()
-                    Text("\(clampedIndex + 1)/\(pages.count) · \(String(format: "%.2f", current.score))")
-                        .font(.caption2.monospacedDigit())
-                        .foregroundColor(.gray)
                 }
 
-                TabView(selection: $selectedPageIndex) {
-                    ForEach(Array(pages.enumerated()), id: \.element.id) { idx, page in
-                        Image(uiImage: page.image)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: .infinity)
-                            .background(Color.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .tag(idx)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(pages) { page in
+                            Button {
+                                presentedPage = page
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Text("[\(page.citation)]")
+                                        .font(.caption.weight(.bold).monospacedDigit())
+                                        .foregroundColor(.accentColor)
+                                    Text("\(page.source) · p. \(page.page)")
+                                        .font(.caption2)
+                                        .foregroundColor(.white)
+                                        .lineLimit(1)
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Color.white.opacity(0.12))
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(
+                                "Reference \(page.citation), \(page.source) page \(page.page). Tap to view."
+                            )
+                        }
                     }
-                }
-                .tabViewStyle(.page(indexDisplayMode: .always))
-                .indexViewStyle(.page(backgroundDisplayMode: .always))
-                .frame(height: 280)
-
-                if !current.query.isEmpty {
-                    Text("“\(current.query)”")
-                        .font(.caption2)
-                        .italic()
-                        .foregroundColor(.gray)
-                        .lineLimit(2)
                 }
             }
             .padding(10)
             .background(Color.white.opacity(0.07))
             .cornerRadius(12)
             .padding(.horizontal)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(
-                "Reference \(clampedIndex + 1) of \(pages.count): \(current.source), page \(current.page). Swipe to see more."
-            )
             .transition(.opacity)
-            .onChange(of: pages.first?.query) { _, _ in
-                // New query — reset the carousel to the top hit.
-                selectedPageIndex = 0
+            .sheet(item: $presentedPage) { page in
+                PageViewerSheet(page: page)
             }
         }
     }
@@ -274,6 +273,47 @@ struct ContentView: View {
         case .connected:            if !isRecording { statusText = "Ready" }
         case .disconnected:         statusText = "Disconnected"
         case .error(let msg):       statusText = "Error: \(msg)"
+        }
+    }
+}
+
+// MARK: - Full-page viewer
+
+/// Modal shown when the user taps a citation chip. Displays the retrieved
+/// PDF page at full size with pinch-to-zoom.
+private struct PageViewerSheet: View {
+    let page: RetrievedPage
+    @Environment(\.dismiss) private var dismiss
+    @State private var zoom: CGFloat = 1.0
+
+    var body: some View {
+        NavigationStack {
+            ScrollView([.horizontal, .vertical]) {
+                Image(uiImage: page.image)
+                    .resizable()
+                    .scaledToFit()
+                    .scaleEffect(zoom)
+                    .gesture(
+                        MagnificationGesture()
+                            .onChanged { zoom = max(1.0, min($0, 4.0)) }
+                    )
+                    .onTapGesture(count: 2) {
+                        withAnimation { zoom = zoom > 1.0 ? 1.0 : 2.0 }
+                    }
+            }
+            .background(Color.white)
+            .navigationTitle("[\(page.citation)] \(page.source)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Text("p. \(page.page) · \(String(format: "%.2f", page.score))")
+                        .font(.caption.monospacedDigit())
+                        .foregroundColor(.secondary)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
         }
     }
 }

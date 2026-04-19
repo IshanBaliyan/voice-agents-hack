@@ -17,6 +17,8 @@ struct RetrievedPage: Equatable, Identifiable {
     let score: Double
     let query: String
     let rank: Int
+    /// 1-indexed number matching `[N]` citations in the model's response.
+    let citation: Int
     let total: Int
     let receivedAt: Date
 
@@ -172,6 +174,8 @@ final class WebSocketManager {
             let query = json["query"] as? String ?? ""
             let rank = (json["rank"] as? Int)
                 ?? Int(json["rank"] as? Double ?? 0)
+            let citation = (json["citation"] as? Int)
+                ?? Int(json["citation"] as? Double ?? 0)
             let total = (json["total"] as? Int)
                 ?? Int(json["total"] as? Double ?? 0)
 
@@ -188,6 +192,7 @@ final class WebSocketManager {
                 score: score,
                 query: query,
                 rank: rank,
+                citation: citation == 0 ? rank + 1 : citation,
                 total: total,
                 receivedAt: Date()
             ))

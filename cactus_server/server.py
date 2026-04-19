@@ -582,8 +582,8 @@ class _CactusSession:
             f"{len(pcm_data):,} bytes audio, running inference"
         )
 
-        # Clear any KV residue from the previous turn (e.g. post-inference
-        # RAG ASR state) so the main inference sees a clean slate.
+        # Clear any KV residue from the previous turn so the main inference
+        # sees a clean slate.
         if cactus_reset is not None:
             await loop.run_in_executor(
                 _executor, lambda: cactus_reset(self._handle)
@@ -700,12 +700,13 @@ class _CactusSession:
         # Audio has already been streamed sentence-by-sentence via the
         # Kokoro TTS worker during decoding — no bulk TTS step needed here.
 
-        # RAG runs *after* the main inference so the user hears the answer
-        # without waiting ~1s for a separate ASR pass. The page_image frame
-        # arrives a beat later as supplemental context.
+        # Post-hoc RAG: embed the *response* (richer signal than the ASR
+        # transcription, and no extra ASR pass required) and surface the
+        # matching pages as citation chips. The user hears the answer
+        # immediately; page_image frames arrive a beat later.
         if _rag_index is not None and cactus_embed is not None:
             try:
-                await self._retrieve_and_send_page(pcm_data)
+                await self._retrieve_pages_for_response(response_text)
             except Exception as exc:
                 logger.warning(f"RAG retrieval failed: {exc}")
 
@@ -713,50 +714,26 @@ class _CactusSession:
     # RAG retrieval
     # ------------------------------------------------------------------
 
-    async def _transcribe_audio(self, pcm_data: bytes) -> str:
-        """Run a short ASR-only pass through Gemma. Returns plain text."""
-        loop = asyncio.get_running_loop()
-        handle = self._handle
-        # Clear KV cache so ASR state doesn't bleed into the main inference
-        # that follows — otherwise Gemma parrots the transcription.
-        if cactus_reset is not None:
-            await loop.run_in_executor(_executor, lambda: cactus_reset(handle))
-        asr_messages = json.dumps([
-            {"role": "system", "content": "Transcribe verbatim. One line. No commentary."},
-            {"role": "user", "content": "Transcribe."},
-        ])
-        asr_options = json.dumps({
-            "max_tokens": 24,
-            "temperature": 0.0,
-            "auto_handoff": False,
-        })
-        raw = await loop.run_in_executor(
-            _executor,
-            lambda: cactus_complete(
-                handle, asr_messages, asr_options, None, None, pcm_data
-            ),
-        )
-        result = json.loads(raw)
-        if not result.get("success"):
-            raise RuntimeError(result.get("error") or "ASR failed")
-        return (result.get("response") or "").strip()
-
-    async def _retrieve_and_send_page(self, pcm_data: bytes) -> None:
+    async def _retrieve_pages_for_response(self, response_text: str) -> None:
+        """
+        Embed the generated response and emit page_image frames for each
+        page above the RAG threshold. Runs AFTER inference so no ASR pass
+        is needed — the response text is itself the retrieval query, which
+        is usually a stronger signal than the raw user utterance.
+        """
         assert _rag_index is not None
         loop = asyncio.get_running_loop()
         handle = self._handle
 
-        transcription = await self._transcribe_audio(pcm_data)
-        if not transcription:
-            logger.info("RAG: empty transcription, skipping retrieval")
+        query = response_text.strip()
+        if not query:
+            logger.info("RAG: empty response, skipping retrieval")
             return
-        logger.info(f"RAG: transcription={transcription!r}")
+        logger.info(f"RAG: embedding response ({len(query)} chars)")
 
         vec = await loop.run_in_executor(
-            _executor, lambda: cactus_embed(handle, transcription, True)
+            _executor, lambda: cactus_embed(handle, query, True)
         )
-        # Pull a generous top_k and then filter client-side — cheaper than
-        # re-querying and lets us show every page above the threshold.
         hits = _rag_index.search(vec, top_k=10)
         if not hits:
             logger.info("RAG: no hits")
@@ -788,8 +765,9 @@ class _CactusSession:
                 "source": hit["source"],
                 "page": hit["page"],
                 "score": hit["score"],
-                "query": transcription,
+                "query": query,
                 "rank": idx,
+                "citation": idx + 1,
                 "total": len(kept),
                 "data": base64.b64encode(img_bytes).decode(),
             })
