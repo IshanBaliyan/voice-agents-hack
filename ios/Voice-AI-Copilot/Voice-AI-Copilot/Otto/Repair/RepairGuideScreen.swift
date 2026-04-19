@@ -462,15 +462,43 @@ private struct StepCard: View {
                 .resizable()
                 .scaledToFit()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .transition(.opacity)
         } else {
-            VStack {
-                Spacer()
-                Image(systemName: "wrench.and.screwdriver")
-                    .font(.system(size: 42, weight: .ultraLight))
+            ImagePlaceholder()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+}
+
+/// Shown in a StepCard while the nanobanana illustration for that step is
+/// still generating. Text instructions render immediately; this placeholder
+/// communicates that the image is on its way without blocking the reader.
+private struct ImagePlaceholder: View {
+    @State private var pulse = false
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Spacer()
+            Image(systemName: "wrench.and.screwdriver")
+                .font(.system(size: 42, weight: .ultraLight))
+                .foregroundStyle(OttoColor.ink3)
+                .opacity(pulse ? 0.45 : 0.95)
+            HStack(spacing: 8) {
+                ProgressView()
+                    .progressViewStyle(.circular)
+                    .scaleEffect(0.7)
+                    .tint(OttoColor.ink3)
+                Text("DRAWING ILLUSTRATION")
+                    .font(OttoFont.mono(9.5, weight: .medium))
+                    .tracking(2.0)
                     .foregroundStyle(OttoColor.ink3)
-                Spacer()
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            Spacer()
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
+                pulse = true
+            }
         }
     }
 }

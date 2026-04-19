@@ -7,6 +7,7 @@ import UIKit
 
 enum OttoRoute: Hashable {
     case home
+    case onboardingCar
     case session
     case camera
     case history
@@ -14,6 +15,7 @@ enum OttoRoute: Hashable {
     case repairGuide
     case training
     case exploded
+    case manual
 }
 
 enum VoiceState {

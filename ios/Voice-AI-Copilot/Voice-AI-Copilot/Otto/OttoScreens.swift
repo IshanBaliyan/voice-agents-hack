@@ -5,22 +5,28 @@ import SwiftUI
 struct OttoRootView: View {
     @EnvironmentObject private var engine: InferenceController
     @StateObject private var store = OttoStore()
+    @ObservedObject private var profiles = CarProfileStore.shared
 
     var body: some View {
         ZStack {
             OttoBackground()
 
             switch store.route {
-            case .home:        OttoLandingWebView(onTap: { store.go(.session) })
-                                   .background(Color(red: 0.02, green: 0.03, blue: 0.06))
-                                   .ignoresSafeArea()
-            case .session:     ActiveSessionView().environmentObject(store)
-            case .camera:      CameraScanView().environmentObject(store)
-            case .history:     HistoryView().environmentObject(store)
-            case .profile:     ProfileView().environmentObject(store)
-            case .repairGuide: RepairGuideRootView().environmentObject(store)
-            case .training:    TrainingView().environmentObject(store)
-            case .exploded:    ExplodedView().environmentObject(store)
+            case .home:
+                OttoLandingWebView(onTap: {
+                    store.go(profiles.onboardingComplete ? .session : .onboardingCar)
+                })
+                .background(Color(red: 0.02, green: 0.03, blue: 0.06))
+                .ignoresSafeArea()
+            case .onboardingCar: OnboardingCarView().environmentObject(store)
+            case .session:       ActiveSessionView().environmentObject(store)
+            case .camera:        CameraScanView().environmentObject(store)
+            case .history:       HistoryView().environmentObject(store)
+            case .profile:       ProfileView().environmentObject(store)
+            case .repairGuide:   RepairGuideRootView().environmentObject(store)
+            case .training:      TrainingView().environmentObject(store)
+            case .exploded:      ExplodedView().environmentObject(store)
+            case .manual:        ManualView().environmentObject(store)
             }
         }
         .preferredColorScheme(.dark)
@@ -420,6 +426,7 @@ func ottoNav(_ item: GlassNavBar.Item, store: OttoStore) {
     case .history:  store.go(.history)
     case .training: store.go(.training)
     case .profile:  store.go(.profile)
+    case .manual:   store.go(.manual)
     }
 }
 

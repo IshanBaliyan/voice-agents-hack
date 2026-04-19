@@ -85,7 +85,7 @@ struct HudWrapper: View {
 // inactive, backdrop-blur over a navy gradient pill.
 
 struct GlassNavBar: View {
-    enum Item: Hashable { case home, guide, exploded, history, training, profile }
+    enum Item: Hashable { case home, guide, manual, exploded, history, training, profile }
 
     var highlighted: Item = .home
     var onSelect: (Item) -> Void
@@ -105,6 +105,8 @@ struct GlassNavBar: View {
             Spacer(minLength: 0)
             navButton(.guide,    icon: "book")
             Spacer(minLength: 0)
+            navButton(.manual,   icon: "doc.text")
+            Spacer(minLength: 0)
             navButton(.exploded, icon: "square.stack.3d.up")
             Spacer(minLength: 0)
             navButton(.history,  icon: "graduationcap")
@@ -113,7 +115,7 @@ struct GlassNavBar: View {
             Spacer(minLength: 0)
             navButton(.profile,  icon: "person")
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 8)
         .padding(.vertical, 8)
         .background(
             Capsule().fill(.ultraThinMaterial)

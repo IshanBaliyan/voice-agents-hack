@@ -146,26 +146,58 @@ final class RepairGuideStore: ObservableObject {
             let draft = try await gemma.generateManual(for: query, vehicle: vehicle)
             manual = draft
             currentStep = 0
-
-            phase = .generatingImages
             imageProgress = 0
-            var withImages = draft
-            for (i, step) in draft.steps.enumerated() {
-                let path = try await bananas.generateImage(for: step, manual: withImages)
-                withImages.steps[i].imagePNGPath = path
-                manual = withImages
-                imageProgress = i + 1
-            }
 
-            cache.save(withImages)
-            // Save to history so the user can come back to this manual later.
-            // Saved AFTER images finish so the thumbnail path resolves.
-            HistoryStore.shared.saveManual(withImages)
+            // Show the text instructions immediately — don't block the UI
+            // waiting for nanobanana. Images stream in below and update the
+            // StepCard in place as each one lands.
             phase = .ready
             speakCurrentStep(includeTitle: true)
+
+            // Save a text-only snapshot to history now so the entry exists
+            // even if the user backs out before all images finish. It gets
+            // overwritten with image paths once the background task completes.
+            HistoryStore.shared.saveManual(draft)
+
+            Task { [weak self] in
+                await self?.streamImages(for: draft)
+            }
         } catch {
             print("[Otto][Repair] generate failed: \(error)")
             phase = .error(error.localizedDescription)
+        }
+    }
+
+    /// Generate all step images in parallel, publishing each one onto
+    /// `manual` as it completes so the current StepCard re-renders in place.
+    /// Failures on individual steps leave that step's placeholder in view
+    /// rather than aborting the whole flow — text is already useful.
+    private func streamImages(for draft: RepairManual) async {
+        let svc = bananas
+        await withTaskGroup(of: (Int, String?).self) { group in
+            for (i, step) in draft.steps.enumerated() {
+                group.addTask {
+                    do {
+                        let path = try await svc.generateImage(for: step, manual: draft)
+                        return (i, path)
+                    } catch {
+                        print("[Otto][Banana] step \(i) failed: \(error.localizedDescription)")
+                        return (i, nil)
+                    }
+                }
+            }
+            for await (i, path) in group {
+                guard let path else { continue }
+                guard var m = manual, m.steps.indices.contains(i) else { continue }
+                m.steps[i].imagePNGPath = path
+                manual = m
+                imageProgress += 1
+            }
+        }
+
+        if let final = manual {
+            cache.save(final)
+            HistoryStore.shared.saveManual(final)
         }
     }
 
