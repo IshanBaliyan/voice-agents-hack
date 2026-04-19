@@ -8,3 +8,6 @@ ios/Voice-AI-Copilot/Voice-AI-Copilot/Models/
 **/*.xcuserstate
 **/DerivedData/
 .DS_Store
+
+# API keys — populated locally, never commit
+ios/Voice-AI-Copilot/Voice-AI-Copilot/Secrets.swift

@@ -6,6 +6,9 @@ enum OttoRoute: Hashable {
     case home
     case session
     case camera
+    case history
+    case profile
+    case repairGuide
 }
 
 enum VoiceState {
@@ -30,7 +33,7 @@ final class OttoStore: ObservableObject {
 
     private let recognizer = SpeechRecognizer()
     private let speaker = Speaker()
-    private let engine = CactusEngine()
+    let engine = CactusEngine()
     private var modelReady = false
     private var recognizerBag: [AnyCancellable] = []
 

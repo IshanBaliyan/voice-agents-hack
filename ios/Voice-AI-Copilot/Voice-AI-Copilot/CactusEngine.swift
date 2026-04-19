@@ -2,6 +2,16 @@ import Foundation
 import SwiftUI
 import Combine
 
+// Thread-safe token accumulator: cactusComplete's token callback fires on a
+// background worker thread; the awaiting Task reads the final buffer after
+// cactus_complete returns synchronously.
+nonisolated final class TokenBuffer: @unchecked Sendable {
+    private var s = ""
+    private let lock = NSLock()
+    func append(_ t: String) { lock.lock(); s.append(t); lock.unlock() }
+    func snapshot() -> String { lock.lock(); defer { lock.unlock() }; return s }
+}
+
 @MainActor
 final class CactusEngine: ObservableObject {
     enum LoadState { case idle, loading, ready, failed(String) }
@@ -67,6 +77,51 @@ final class CactusEngine: ObservableObject {
 
     deinit {
         if let model { cactusDestroy(model) }
+    }
+
+    // One-shot completion for structured output. Does NOT mutate `partial` /
+    // `isGenerating` — lets the repair-guide path run without interfering with
+    // the voice assistant's streaming UI.
+    func complete(systemPrompt: String, userPrompt: String, maxTokens: Int = 800) async throws -> String {
+        // Kick off load if this is the very first call.
+        if case .idle = loadState { await loadIfNeeded() }
+
+        // If warmUp from OttoStore is mid-flight, loadIfNeeded above returned
+        // immediately — poll until .ready or .failed. 60s cap.
+        var waitedMs = 0
+        while case .loading = loadState {
+            if waitedMs >= 60_000 {
+                throw NSError(domain: "Otto.Cactus", code: 1,
+                              userInfo: [NSLocalizedDescriptionKey: "model still loading after 60s"])
+            }
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            waitedMs += 150
+        }
+        if case let .failed(msg) = loadState {
+            throw NSError(domain: "Otto.Cactus", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "model load failed: \(msg)"])
+        }
+        guard let model else {
+            throw NSError(domain: "Otto.Cactus", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "model not loaded"])
+        }
+        let messages: [[String: String]] = [
+            ["role": "system", "content": systemPrompt],
+            ["role": "user",   "content": userPrompt]
+        ]
+        let messagesJson = String(
+            data: try JSONSerialization.data(withJSONObject: messages),
+            encoding: .utf8
+        )!
+        let options = "{\"max_tokens\":\(maxTokens),\"temperature\":0.2,\"top_p\":0.9,\"stop\":[\"<end_of_turn>\",\"<|end|>\",\"</s>\"]}"
+
+        let buffer = TokenBuffer()
+        try await Task.detached(priority: .userInitiated) {
+            _ = try cactusComplete(model, messagesJson, options, nil) { token, _ in
+                buffer.append(token)
+            }
+        }.value
+        return buffer.snapshot()
     }
 
     private func buildMessagesJson(userPrompt: String) -> String {

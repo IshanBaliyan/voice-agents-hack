@@ -94,4 +94,28 @@ struct CameraPreview: UIViewRepresentable {
         var videoPreviewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
     }
 }
+
+// Self-contained camera backdrop for ActiveSessionView. Owns its own
+// CameraController, requests permission on appear, shuts down on disappear.
+// Falls back to transparent if not authorized so the UI behind still shows.
+
+struct SessionCameraBackdrop: View {
+    @StateObject private var camera = CameraController()
+
+    var body: some View {
+        Group {
+            if camera.isAuthorized {
+                CameraPreview(session: camera.session)
+            } else {
+                Color.clear
+            }
+        }
+        .task {
+            _ = await camera.requestAuthorization()
+            camera.configureIfNeeded()
+            camera.start()
+        }
+        .onDisappear { camera.stop() }
+    }
+}
 #endif
