@@ -105,10 +105,10 @@ final class OttoStore: ObservableObject {
 
     // Hard wall-clock budget for the on-device (or relay) engine to produce
     // an answer before we give up and route the turn to Gemini cloud.
-    // 8 seconds is the demo-tuned value: long enough for fast turns to stay
-    // local, short enough that a stuck Cactus prefill doesn't dead-air the
-    // conversation.
-    private static let engineTimeoutSeconds: Double = 8
+    // 4 seconds is aggressive — most E2B turns that were going to succeed
+    // quickly have finished by then, and stuck prefills get cut short before
+    // the user feels dead air.
+    private static let engineTimeoutSeconds: Double = 4
 
     private func finishListeningAndRespond() async {
         let question = partialTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
