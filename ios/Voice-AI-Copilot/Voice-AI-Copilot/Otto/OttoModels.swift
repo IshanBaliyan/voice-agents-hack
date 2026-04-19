@@ -9,6 +9,8 @@ enum OttoRoute: Hashable {
     case history
     case profile
     case repairGuide
+    case training
+    case exploded
 }
 
 enum VoiceState {
@@ -75,6 +77,20 @@ final class OttoStore: ObservableObject {
         }
     }
 
+    /// Clear the live voice session and return to a clean idle state. Used by
+    /// the "Not now" chip in the speaking hand-off and anywhere else we want
+    /// the user to start over from scratch. Does NOT touch persistent history
+    /// (that's kept in HistoryStore) — only in-memory conversation context.
+    func resetSession() {
+        speaker.stop()
+        recognizer.stop()
+        partialTranscript = ""
+        currentAnswer = ""
+        history.removeAll()
+        error = nil
+        voice = .idle
+    }
+
     private func beginListening() async {
         let ok = await recognizer.requestAuthorization()
         guard ok else { error = "Microphone or speech permission denied."; return }
@@ -102,6 +118,9 @@ final class OttoStore: ObservableObject {
         let answer = engine.partial.trimmingCharacters(in: .whitespacesAndNewlines)
         currentAnswer = answer
         history.append(Turn(role: .otto, text: answer))
+
+        // Persist this Q&A turn so the History page can replay it later.
+        HistoryStore.shared.saveQA(question: question, answer: answer)
 
         voice = .speaking
         speaker.speak(answer) { [weak self] in
