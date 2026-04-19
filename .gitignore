@@ -287,6 +287,7 @@ iOSInjectionProject/
 cactus_server/models/
 cactus_server/.env
 cactus_server/.venv
+cactus_server/qdrant_data/*
 
 # End of https://www.toptal.com/developers/gitignore/api/python,xcode,swift
 # Keep the vendored Cactus dylib tracked — the generic Python template

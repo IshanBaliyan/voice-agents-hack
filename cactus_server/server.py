@@ -21,11 +21,20 @@ Protocol (per WebSocket session):
         {"timestamp": <ms>, "type": "token", "data": "<base64 UTF-8>"}  (streamed, per decoded token)
         {"timestamp": <ms>, "type": "audio", "data": "<base64 PCM16>"}  (final TTS blob)
         {"timestamp": <ms>, "type": "text",  "data": "<base64 UTF-8>"}  (fallback if TTS fails)
+        {"timestamp": <ms>, "type": "page_image", "data": "<base64 PNG>",
+         "source": "<pdf>", "page": <int>, "score": <float>, "query": "<str>"}
+            (RAG hit — emitted once per turn when the transcribed query matches
+             a page above CACTUS_RAG_MIN_SCORE)
 
 Environment variables:
     CACTUS_PYTHON_PATH  — path to cactus python directory
                           (default: <this dir>/vendor/python, which ships with the server)
     GEMMA4_MODEL_PATH   — absolute path to the Gemma 4 weights directory
+    CACTUS_QDRANT_DIR   — path to the Qdrant db built by
+                          scripts/build_rag_index.py
+                          (default: <this dir>/qdrant_data)
+    CACTUS_RAG_MIN_SCORE — minimum cosine score to emit a page_image frame
+                           (default: 0.25)
 """
 
 import asyncio
@@ -79,6 +88,8 @@ try:
     _spec.loader.exec_module(_cactus_mod)  # type: ignore[union-attr]
     cactus_init = _cactus_mod.cactus_init
     cactus_complete = _cactus_mod.cactus_complete
+    cactus_embed = _cactus_mod.cactus_embed
+    cactus_reset = _cactus_mod.cactus_reset
     _CACTUS_AVAILABLE = True
 except Exception as _err:
     logger.error(
@@ -87,14 +98,39 @@ except Exception as _err:
     )
     cactus_init = None  # type: ignore[assignment]
     cactus_complete = None  # type: ignore[assignment]
+    cactus_embed = None  # type: ignore[assignment]
+    cactus_reset = None  # type: ignore[assignment]
     _CACTUS_AVAILABLE = False
+
+# ---------------------------------------------------------------------------
+# Optional RAG index (built offline by scripts/build_rag_index.py)
+# ---------------------------------------------------------------------------
+
+try:
+    from cactus_server.rag_index import open_index as _open_rag_index
+except Exception as _rag_err:  # pragma: no cover
+    logger.warning(f"RAG module unavailable: {_rag_err}")
+    _open_rag_index = None  # type: ignore[assignment]
+
+_DEFAULT_QDRANT_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "qdrant_data"
+)
+_QDRANT_DIR = os.getenv("CACTUS_QDRANT_DIR", _DEFAULT_QDRANT_DIR)
+try:
+    _RAG_MIN_SCORE = float(os.getenv("CACTUS_RAG_MIN_SCORE", "0.5"))
+except ValueError:
+    _RAG_MIN_SCORE = 0.5
+
+_rag_index = None  # set in lifespan
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-_NAVIGATION_SYSTEM_PROMPT = (
-    "Describe what you see." 
+_SYSTEM_PROMPT = (
+    "You help mechanics diagnose vehicles from an image and the user's question. "
+    "Answer in 2–3 short sentences. Be concrete and practical. "
+    "If you can't tell from the image, say so and ask one follow-up."
 )
 
 _GEMMA_SAMPLE_RATE = 16_000
@@ -320,7 +356,7 @@ class _CactusSession:
         self._pending_images: List[str] = []
 
         self._conversation: List[Dict[str, Any]] = [
-            {"role": "system", "content": _NAVIGATION_SYSTEM_PROMPT}
+            {"role": "system", "content": _SYSTEM_PROMPT}
         ]
         self._processing_task: Optional[asyncio.Task] = None
 
@@ -546,6 +582,13 @@ class _CactusSession:
             f"{len(pcm_data):,} bytes audio, running inference"
         )
 
+        # Clear any KV residue from the previous turn (e.g. post-inference
+        # RAG ASR state) so the main inference sees a clean slate.
+        if cactus_reset is not None:
+            await loop.run_in_executor(
+                _executor, lambda: cactus_reset(self._handle)
+            )
+
         user_message: Dict[str, Any] = {
             "role": "user",
             "content": "Help me navigate based on what you see and hear.",
@@ -559,7 +602,7 @@ class _CactusSession:
         # the user content is constant and the assistant's prior reply
         # dominated the attention over the new vision soft tokens.
         messages_for_inference = [
-            {"role": "system", "content": _NAVIGATION_SYSTEM_PROMPT},
+            {"role": "system", "content": _SYSTEM_PROMPT},
             user_message,
         ]
         messages_json = json.dumps(messages_for_inference)
@@ -573,9 +616,13 @@ class _CactusSession:
         response_text = ""
         try:
             options_json = json.dumps({
-                "max_tokens": 512,
+                "max_tokens": 160,
                 "temperature": 0.7,
                 "auto_handoff": False,
+                # Gemma emits a `<|channel>thought …` chain-of-thought
+                # preamble when thinking is on — wastes decode time and
+                # leaks into Kokoro TTS ("Here's a thinking process…").
+                "enable_thinking_if_supported": False,
             })
             handle = self._handle
             pcm_for_complete = pcm_data
@@ -653,6 +700,105 @@ class _CactusSession:
         # Audio has already been streamed sentence-by-sentence via the
         # Kokoro TTS worker during decoding — no bulk TTS step needed here.
 
+        # RAG runs *after* the main inference so the user hears the answer
+        # without waiting ~1s for a separate ASR pass. The page_image frame
+        # arrives a beat later as supplemental context.
+        if _rag_index is not None and cactus_embed is not None:
+            try:
+                await self._retrieve_and_send_page(pcm_data)
+            except Exception as exc:
+                logger.warning(f"RAG retrieval failed: {exc}")
+
+    # ------------------------------------------------------------------
+    # RAG retrieval
+    # ------------------------------------------------------------------
+
+    async def _transcribe_audio(self, pcm_data: bytes) -> str:
+        """Run a short ASR-only pass through Gemma. Returns plain text."""
+        loop = asyncio.get_running_loop()
+        handle = self._handle
+        # Clear KV cache so ASR state doesn't bleed into the main inference
+        # that follows — otherwise Gemma parrots the transcription.
+        if cactus_reset is not None:
+            await loop.run_in_executor(_executor, lambda: cactus_reset(handle))
+        asr_messages = json.dumps([
+            {"role": "system", "content": "Transcribe verbatim. One line. No commentary."},
+            {"role": "user", "content": "Transcribe."},
+        ])
+        asr_options = json.dumps({
+            "max_tokens": 24,
+            "temperature": 0.0,
+            "auto_handoff": False,
+        })
+        raw = await loop.run_in_executor(
+            _executor,
+            lambda: cactus_complete(
+                handle, asr_messages, asr_options, None, None, pcm_data
+            ),
+        )
+        result = json.loads(raw)
+        if not result.get("success"):
+            raise RuntimeError(result.get("error") or "ASR failed")
+        return (result.get("response") or "").strip()
+
+    async def _retrieve_and_send_page(self, pcm_data: bytes) -> None:
+        assert _rag_index is not None
+        loop = asyncio.get_running_loop()
+        handle = self._handle
+
+        transcription = await self._transcribe_audio(pcm_data)
+        if not transcription:
+            logger.info("RAG: empty transcription, skipping retrieval")
+            return
+        logger.info(f"RAG: transcription={transcription!r}")
+
+        vec = await loop.run_in_executor(
+            _executor, lambda: cactus_embed(handle, transcription, True)
+        )
+        # Pull a generous top_k and then filter client-side — cheaper than
+        # re-querying and lets us show every page above the threshold.
+        hits = _rag_index.search(vec, top_k=10)
+        if not hits:
+            logger.info("RAG: no hits")
+            return
+
+        kept = [h for h in hits if h["score"] >= _RAG_MIN_SCORE]
+        logger.info(
+            f"RAG: {len(hits)} hits, {len(kept)} above {_RAG_MIN_SCORE:.2f} — "
+            f"top={hits[0]['source']} p{hits[0]['page']} score={hits[0]['score']:.3f}"
+        )
+        if not kept:
+            return
+
+        for idx, hit in enumerate(kept):
+            image_path = hit.get("image_path")
+            if not image_path or not os.path.exists(image_path):
+                logger.warning(f"RAG: page image missing at {image_path!r}")
+                continue
+            try:
+                with open(image_path, "rb") as f:
+                    img_bytes = f.read()
+            except OSError as exc:
+                logger.warning(f"RAG: failed to read page image: {exc}")
+                continue
+
+            await self._response_queue.put({
+                "timestamp": int(time.time() * 1000),
+                "type": "page_image",
+                "source": hit["source"],
+                "page": hit["page"],
+                "score": hit["score"],
+                "query": transcription,
+                "rank": idx,
+                "total": len(kept),
+                "data": base64.b64encode(img_bytes).decode(),
+            })
+            logger.info(
+                f"RAG: queued page_image {idx+1}/{len(kept)} "
+                f"({len(img_bytes):,} bytes) for {hit['source']} p.{hit['page']} "
+                f"score={hit['score']:.3f}"
+            )
+
     def _trim_conversation(self) -> None:
         system_msgs = [m for m in self._conversation if m["role"] == "system"]
         other_msgs = [m for m in self._conversation if m["role"] != "system"]
@@ -668,6 +814,7 @@ class _CactusSession:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _rag_index
     if not _CACTUS_AVAILABLE:
         logger.error(
             "Cactus library unavailable — WebSocket connections will be rejected."
@@ -677,6 +824,21 @@ async def lifespan(app: FastAPI):
             await _ensure_model_loaded()
         except Exception as exc:
             logger.error(f"Failed to pre-load Gemma 4 on startup: {exc}")
+
+        # Open the pre-built RAG index (docling parsing + ingestion happens
+        # offline via scripts/build_rag_index.py, so this is cheap).
+        if _open_rag_index is not None:
+            try:
+                from pathlib import Path as _Path
+                _rag_index = _open_rag_index(_Path(_QDRANT_DIR))
+                if _rag_index is None:
+                    logger.info(
+                        "RAG disabled at runtime — build the index first with "
+                        "`python -m cactus_server.scripts.build_rag_index`"
+                    )
+            except Exception as exc:
+                logger.warning(f"Failed to open RAG index: {exc}")
+
     # Pre-warm Kokoro so the first user sentence doesn't pay the pipeline
     # init + first-inference cold-start cost (~1–3s on Mac CPU). Run in a
     # thread so it doesn't block the event loop.
