@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - Root
 
 struct OttoRootView: View {
+    @EnvironmentObject private var engine: InferenceController
     @StateObject private var store = OttoStore()
 
     var body: some View {
@@ -19,7 +20,11 @@ struct OttoRootView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .task { await store.warmUp() }
+        .task {
+            // Wire the environment-injected controller into OttoStore, then warm it up.
+            store.attach(engine: engine)
+            await store.warmUp()
+        }
     }
 }
 
@@ -626,4 +631,7 @@ struct CameraScanView: View {
 
 }
 
-#Preview { OttoRootView() }
+#Preview {
+    OttoRootView()
+        .environmentObject(InferenceController())
+}

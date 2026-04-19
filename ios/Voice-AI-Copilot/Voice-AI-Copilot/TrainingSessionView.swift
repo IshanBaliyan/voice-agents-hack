@@ -10,7 +10,7 @@ struct TrainingSessionView: View {
     let course: TrainingCourse
 
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var engine: CactusEngine
+    @EnvironmentObject private var engine: InferenceController
     @StateObject private var speaker = StreamingSpeaker()
 
     private let arController = EngineARView.Controller()

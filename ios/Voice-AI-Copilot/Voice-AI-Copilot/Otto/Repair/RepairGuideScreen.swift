@@ -36,16 +36,16 @@ struct RepairGuideRootView: View {
     }
 }
 
-/// Lightweight holder so we can inject Otto's shared CactusEngine at runtime
+/// Lightweight holder so we can inject the shared InferenceController at runtime
 /// (an @StateObject can't easily take dependencies in init).
 @MainActor
 final class RepairGuideStoreHolder: ObservableObject {
-    @Published private(set) var store: RepairGuideStore = RepairGuideStore(engine: CactusEngine())
+    @Published private(set) var store: RepairGuideStore = RepairGuideStore(engine: InferenceController())
     @Published private(set) var phase: RepairPhase = .idle
     private var attached = false
     private var cancellables: Set<AnyCancellable> = []
 
-    func attach(engine: CactusEngine) {
+    func attach(engine: InferenceController) {
         guard !attached else { return }
         attached = true
         store = RepairGuideStore(engine: engine)

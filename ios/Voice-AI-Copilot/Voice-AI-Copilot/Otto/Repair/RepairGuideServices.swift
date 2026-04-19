@@ -4,9 +4,9 @@ import CryptoKit
 // MARK: - Gemma (on-device) → structured JSON manual
 
 final class GemmaInstructionService {
-    private let engine: CactusEngine
+    private let engine: InferenceController
     private let cloudFallback = GeminiCloudTextService()
-    init(engine: CactusEngine) { self.engine = engine }
+    init(engine: InferenceController) { self.engine = engine }
 
     func generateManual(for query: String, vehicle: String) async throws -> RepairManual {
         let system = """

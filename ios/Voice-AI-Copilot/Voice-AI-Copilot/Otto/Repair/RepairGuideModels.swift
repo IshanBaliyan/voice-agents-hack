@@ -47,13 +47,13 @@ final class RepairGuideStore: ObservableObject {
     private let gemma: GemmaInstructionService
     private let bananas = NanobananaService()
     private let cache = RepairGuideCache()
-    private let engine: CactusEngine
+    private let engine: InferenceController
     private var listeningMode: ListeningMode = .query
     private var bag: [AnyCancellable] = []
 
     private enum ListeningMode { case query, command }
 
-    init(engine: CactusEngine) {
+    init(engine: InferenceController) {
         self.engine = engine
         self.gemma = GemmaInstructionService(engine: engine)
         recognizer.$transcript

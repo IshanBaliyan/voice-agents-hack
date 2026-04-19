@@ -19,5 +19,5 @@ struct MainTabView: View {
 
 #Preview {
     MainTabView()
-        .environmentObject(CactusEngine())
+        .environmentObject(InferenceController())
 }

@@ -33,15 +33,25 @@ final class OttoStore: ObservableObject {
 
     private let recognizer = SpeechRecognizer()
     private let speaker = Speaker()
-    let engine = CactusEngine()
+    // Injected from the root app so mode (local/remote) is shared globally.
+    // Until attach(engine:) is called we keep a placeholder so the OttoStore
+    // can be created before the view hierarchy injects the real one.
+    private(set) var engine: InferenceController
     private var modelReady = false
     private var recognizerBag: [AnyCancellable] = []
 
-    init() {
+    init(engine: InferenceController = InferenceController()) {
+        self.engine = engine
         recognizer.$transcript
             .receive(on: RunLoop.main)
             .sink { [weak self] t in self?.partialTranscript = t }
             .store(in: &recognizerBag)
+    }
+
+    // Called from OttoRootView.task once the environment-injected controller
+    // is in scope. Safe to call multiple times.
+    func attach(engine: InferenceController) {
+        self.engine = engine
     }
 
     func warmUp() async {

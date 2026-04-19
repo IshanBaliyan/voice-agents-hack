@@ -9,9 +9,10 @@ import SwiftUI
 
 @main
 struct Voice_AI_CopilotApp: App {
-    // One model instance for the whole app — loading the Gemma weights twice
-    // OOMs the phone, so ContentView and the Training tab share this.
-    @StateObject private var engine = CactusEngine()
+    // One inference controller for the whole app — loading the Gemma weights
+    // twice OOMs the phone, so every view shares this. Routes between local
+    // (on-device Cactus) and remote (Mac relay) based on AppMode.
+    @StateObject private var engine = InferenceController()
 
     var body: some Scene {
         WindowGroup {
