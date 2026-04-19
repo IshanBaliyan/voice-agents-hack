@@ -160,7 +160,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Xcode's filesystem-synchronized group auto-compiles .mlpackage into\n# .mlmodelc, but Cactus's NPU loader specifically looks for .mlpackage\n# bundles at the bundle root. Restore them from source so the Gemma 4\n# E2B vision + audio encoders can run on the Neural Engine instead of\n# falling back to CPU.\n#\n# Note on sandboxing: Xcode's ENABLE_USER_SCRIPT_SANDBOXING (default YES in\n# recent Xcode) silently denies writes outside declared outputPaths. The\n# outputPaths list above is what opens the sandbox for our rsync targets.\nset -e\nSRC=\"${SRCROOT}/Voice-AI-Copilot/gemma-4-e2b-it\"\nDEST=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app\"\nif [ ! -d \"$SRC\" ]; then\n  echo \"[cactus-mlpackage] source dir not found at $SRC — skipping\"\n  exit 0\nfi\nshopt -s nullglob 2>/dev/null || true\nfor pkg in \"$SRC\"/*.mlpackage; do\n  [ -d \"$pkg\" ] || continue\n  name=$(basename \"$pkg\")\n  echo \"[cactus-mlpackage] rsync $name -> $DEST/$name\"\n  rsync -a --delete \"$pkg/\" \"$DEST/$name/\"\ndone\n";
+			shellScript = "# Xcode's filesystem-synchronized group auto-compiles .mlpackage into\n# .mlmodelc, but Cactus's NPU loader specifically looks for .mlpackage\n# bundles at the bundle root. Restore them from source so the Gemma 4\n# E2B vision + audio encoders can run on the Neural Engine instead of\n# falling back to CPU.\n#\n# Note: this target has ENABLE_USER_SCRIPT_SANDBOXING = NO. The sandbox\n# grants access to directory *entries* declared in inputPaths/outputPaths\n# but not recursively to their contents, so rsync couldn't see inside the\n# .mlpackage bundles (Manifest.json + Data/). Disabling the sandbox for\n# this target avoids the brittle alternative of listing every file.\nset -e\nSRC=\"${SRCROOT}/Voice-AI-Copilot/gemma-4-e2b-it\"\nDEST=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app\"\nif [ ! -d \"$SRC\" ]; then\n  echo \"[cactus-mlpackage] source dir not found at $SRC — skipping\"\n  exit 0\nfi\nshopt -s nullglob 2>/dev/null || true\nfor pkg in \"$SRC\"/*.mlpackage; do\n  [ -d \"$pkg\" ] || continue\n  name=$(basename \"$pkg\")\n  echo \"[cactus-mlpackage] rsync $name -> $DEST/$name\"\n  rsync -a --delete \"$pkg/\" \"$DEST/$name/\"\ndone\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -212,7 +212,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -273,7 +273,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;

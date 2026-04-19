@@ -80,6 +80,17 @@ final class InferenceController: ObservableObject {
         }
     }
 
+    // Abort whatever the active backend is doing. Used by OttoStore's
+    // 8-second voice-chat timeout before it hands the turn to the Gemini
+    // cloud fallback — keeps the abandoned backend's in-flight tokens from
+    // racing with the cloud answer we're about to speak.
+    func abandonCurrent() {
+        switch mode {
+        case .local:  local.abandonCurrent()
+        case .remote: remote.abandonCurrent()
+        }
+    }
+
     func complete(systemPrompt: String, userPrompt: String, maxTokens: Int = 800) async throws -> String {
         switch mode {
         case .local:
