@@ -1,20 +1,14 @@
 import SwiftUI
 
-private enum PickerPalette {
-    static let background = Color.black
-    static let card = Color(red: 0.11, green: 0.11, blue: 0.11)
-    static let accent = Color(red: 0.114, green: 0.725, blue: 0.329)
-    static let primaryText = Color.white
-    static let secondaryText = Color(white: 0.7)
-}
-
 struct CoursePickerView: View {
+    @Environment(\.dismiss) private var dismiss
     @State private var activeCourse: TrainingCourse?
 
     var body: some View {
         NavigationStack {
             ZStack {
-                PickerPalette.background.ignoresSafeArea()
+                OttoBackground()
+
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         header
@@ -30,8 +24,19 @@ struct CoursePickerView: View {
                     .padding(.bottom, 32)
                 }
             }
-            .preferredColorScheme(.dark)
-            .navigationBarHidden(true)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(OttoColor.cream)
+                            .padding(10)
+                            .background(OttoColor.navy.opacity(0.6))
+                            .clipShape(Circle())
+                    }
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
             .fullScreenCover(item: $activeCourse) { course in
                 TrainingSessionView(course: course)
             }
@@ -39,43 +44,52 @@ struct CoursePickerView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Training")
-                .font(.system(size: 28, weight: .heavy))
-                .foregroundStyle(PickerPalette.primaryText)
-                .kerning(-0.5)
-            Text("Practice hands-on repair with AR + your voice coach")
-                .font(.footnote)
-                .foregroundStyle(PickerPalette.secondaryText)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 4) {
+                Text("Training")
+                    .font(OttoFont.serif(34, weight: .light))
+                    .foregroundStyle(OttoColor.cream)
+                Circle().fill(OttoColor.orange)
+                    .frame(width: 7, height: 7)
+                    .offset(y: 14)
+            }
+            Label2Mono(text: "Hands-on repair with AR + your voice coach")
         }
+        .padding(.top, 8)
     }
 
     private func courseCard(_ course: TrainingCourse) -> some View {
         HStack(alignment: .top, spacing: 14) {
             ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(PickerPalette.accent.opacity(0.18))
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(OttoColor.orange.opacity(0.18))
                     .frame(width: 58, height: 58)
                 Image(systemName: course.iconSystemName)
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(PickerPalette.accent)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(OttoColor.orange)
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text(course.title)
-                    .font(.headline)
-                    .foregroundStyle(PickerPalette.primaryText)
+                    .font(OttoFont.serif(18, weight: .regular))
+                    .foregroundStyle(OttoColor.cream)
                 Text(course.subtitle)
-                    .font(.footnote)
-                    .foregroundStyle(PickerPalette.secondaryText)
+                    .font(OttoFont.body(13))
+                    .foregroundStyle(OttoColor.creamDim)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(PickerPalette.secondaryText)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(OttoColor.creamFaint)
         }
         .padding(16)
-        .background(PickerPalette.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(OttoColor.navy.opacity(0.55))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(OttoColor.hairline, lineWidth: 1)
+        )
     }
 }

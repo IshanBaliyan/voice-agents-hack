@@ -1,11 +1,5 @@
 import SwiftUI
 
-private enum TrainingPalette {
-    static let accent = Color(red: 0.114, green: 0.725, blue: 0.329)
-    static let danger = Color(red: 0.95, green: 0.3, blue: 0.3)
-    static let overlay = Color.black.opacity(0.55)
-}
-
 struct TrainingSessionView: View {
     let course: TrainingCourse
 
@@ -55,25 +49,23 @@ struct TrainingSessionView: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(.white)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(OttoColor.cream)
                     .padding(10)
-                    .background(TrainingPalette.overlay)
+                    .background(OttoColor.navyDeep.opacity(0.7))
                     .clipShape(Circle())
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
                 Text(course.title)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.white)
-                Text(statusText)
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.8))
+                    .font(OttoFont.serif(16, weight: .regular))
+                    .foregroundStyle(OttoColor.cream)
+                Label2Mono(text: statusText)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(TrainingPalette.overlay)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .background(OttoColor.navyDeep.opacity(0.7))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
@@ -83,11 +75,12 @@ struct TrainingSessionView: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "speaker.wave.2.fill")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(TrainingPalette.accent)
+                .foregroundStyle(OttoColor.orange)
                 .padding(.top, 2)
             Text(latestResponse.isEmpty ? "…" : latestResponse)
-                .font(.system(size: 15))
-                .foregroundStyle(.white)
+                .font(OttoFont.serif(15))
+                .italic()
+                .foregroundStyle(OttoColor.cream)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Button {
                 withAnimation(.easeOut(duration: 0.2)) {
@@ -97,15 +90,21 @@ struct TrainingSessionView: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(OttoColor.cream)
                     .padding(6)
-                    .background(Color.white.opacity(0.15))
+                    .background(OttoColor.cream.opacity(0.15))
                     .clipShape(Circle())
             }
         }
         .padding(14)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(OttoColor.navy.opacity(0.85))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(OttoColor.hairline, lineWidth: 1)
+        )
     }
 
     private var shutterRow: some View {
@@ -113,15 +112,15 @@ struct TrainingSessionView: View {
             Button(action: capture) {
                 ZStack {
                     Circle()
-                        .stroke(.white, lineWidth: 4)
+                        .stroke(OttoColor.cream, lineWidth: 4)
                         .frame(width: 78, height: 78)
                     Circle()
-                        .fill(engine.isGenerating ? TrainingPalette.accent : .white)
+                        .fill(engine.isGenerating ? OttoColor.orange : OttoColor.cream)
                         .frame(width: 64, height: 64)
                     if engine.isGenerating {
                         ProgressView()
                             .progressViewStyle(.circular)
-                            .tint(.black)
+                            .tint(OttoColor.navyDeep)
                     }
                 }
             }
@@ -129,11 +128,11 @@ struct TrainingSessionView: View {
 
             if let captureError {
                 Text(captureError)
-                    .font(.caption)
-                    .foregroundStyle(TrainingPalette.danger)
+                    .font(OttoFont.body(12))
+                    .foregroundStyle(OttoColor.danger)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 4)
-                    .background(TrainingPalette.overlay)
+                    .background(OttoColor.navyDeep.opacity(0.7))
                     .clipShape(Capsule())
             }
         }
@@ -147,11 +146,11 @@ struct TrainingSessionView: View {
     }
 
     private var statusText: String {
-        if engine.isGenerating { return "Coach is reviewing…" }
+        if engine.isGenerating { return "Coach is reviewing" }
         switch engine.loadState {
         case .idle:    return "Loading coach"
         case .loading: return "Loading coach"
-        case .ready:   return "Tap shutter to ask the coach"
+        case .ready:   return "Tap to ask the coach"
         case .failed:  return "Coach unavailable"
         }
     }

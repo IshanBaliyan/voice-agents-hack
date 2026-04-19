@@ -27,16 +27,24 @@ final class CactusEngine: ObservableObject {
     @Published var loadState: LoadState = .idle
     @Published var partial: String = ""
     @Published var isGenerating: Bool = false
+    /// True while Kokoro PCM is actively draining through the player. The Otto
+    /// orb reads this to render `.speaking`, which is distinct from
+    /// `isGenerating` (that covers thinking before TTS starts).
+    @Published var isPlayingAudio: Bool = false
 
     /// Override at runtime if the ngrok URL changes.
-    static var serverURL: String = "wss://68bd-50-175-245-62.ngrok-free.app/ws"
+    static var serverURL: String = "wss://guts-trinity-abacus.ngrok-free.dev/ws"
 
     private var task: URLSessionWebSocketTask?
     private var urlSession: URLSession?
     private var connectedContinuation: CheckedContinuation<Void, Error>?
     private var turnContinuation: CheckedContinuation<Void, Never>?
 
-    private let player = PCMPlayer()
+    private lazy var player: PCMPlayer = PCMPlayer { [weak self] active in
+        Task { @MainActor [weak self] in
+            self?.isPlayingAudio = active
+        }
+    }
     private let log = Logger(subsystem: "voice-ai-copilot", category: "CactusEngine.Server")
 
     // MARK: - Public API
@@ -64,6 +72,12 @@ final class CactusEngine: ObservableObject {
 
     func generate(pcmData: Data, imagePath: String? = nil) async {
         await runTurn(pcmData: pcmData, imagePath: imagePath)
+    }
+
+    /// Stop Kokoro playback mid-turn. The underlying generate() call still runs
+    /// to completion — we just drop any remaining audio chunks on the floor.
+    func interruptAudio() {
+        player.reset()
     }
 
     // MARK: - Prompt-only / prompt+image turns
@@ -267,6 +281,17 @@ private final class PCMPlayer {
                                        interleaved: true)!
     private var configured = false
 
+    /// Increment/decrement around scheduled buffers. Flips the observer true
+    /// on the leading edge (first buffer queued) and false on the trailing edge
+    /// (last buffer drained), which maps cleanly to VoiceState.speaking.
+    private let counterLock = NSLock()
+    private var pending = 0
+    private let onActiveChanged: (Bool) -> Void
+
+    init(onActiveChanged: @escaping (Bool) -> Void) {
+        self.onActiveChanged = onActiveChanged
+    }
+
     func play(_ data: Data) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
@@ -284,7 +309,21 @@ private final class PCMPlayer {
             }
 
             if !self.engine.isRunning { try? self.engine.start() }
-            self.node.scheduleBuffer(buffer, completionHandler: nil)
+
+            self.counterLock.lock()
+            let wasIdle = self.pending == 0
+            self.pending += 1
+            self.counterLock.unlock()
+            if wasIdle { self.onActiveChanged(true) }
+
+            self.node.scheduleBuffer(buffer) { [weak self] in
+                guard let self else { return }
+                self.counterLock.lock()
+                self.pending -= 1
+                let drained = self.pending == 0
+                self.counterLock.unlock()
+                if drained { self.onActiveChanged(false) }
+            }
             if !self.node.isPlaying { self.node.play() }
         }
     }
@@ -292,6 +331,11 @@ private final class PCMPlayer {
     func reset() {
         guard configured else { return }
         node.stop()
+        counterLock.lock()
+        let wasActive = pending > 0
+        pending = 0
+        counterLock.unlock()
+        if wasActive { onActiveChanged(false) }
     }
 
     private func configure() {
