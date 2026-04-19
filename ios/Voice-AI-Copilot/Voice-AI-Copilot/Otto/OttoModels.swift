@@ -9,6 +9,8 @@ enum OttoRoute: Hashable {
     case history
     case profile
     case repairGuide
+    case training
+    case exploded
 }
 
 enum VoiceState {
@@ -102,6 +104,9 @@ final class OttoStore: ObservableObject {
         let answer = engine.partial.trimmingCharacters(in: .whitespacesAndNewlines)
         currentAnswer = answer
         history.append(Turn(role: .otto, text: answer))
+
+        // Persist this Q&A turn so the History page can replay it later.
+        HistoryStore.shared.saveQA(question: question, answer: answer)
 
         voice = .speaking
         speaker.speak(answer) { [weak self] in
