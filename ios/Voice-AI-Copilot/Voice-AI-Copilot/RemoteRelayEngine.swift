@@ -43,6 +43,11 @@ final class RemoteRelayEngine: ObservableObject {
     private var pendingCompletion: CheckedContinuation<String, Error>?
     private var completionBuffer: String = ""
 
+    // Mirror of CactusEngine.generationNonce — lets OttoStore time us out
+    // and route to the cloud without this engine's inbound tokens clobbering
+    // `partial` after the switch.
+    private var generationNonce: Int = 0
+
     init(urlString: String? = nil) {
         let stored = UserDefaults.standard.string(forKey: AppModeDefaults.relayURLKey)
         let resolved = urlString ?? stored ?? AppModeDefaults.fallbackRelayURL
@@ -67,16 +72,14 @@ final class RemoteRelayEngine: ObservableObject {
 
     func generate(prompt: String) async {
         guard await waitUntilReady() else { return }
-        isGenerating = true
-        partial = ""
+        beginTurn()
         sendMessage(["type": "text", "data": prompt])
         sendMessage(["type": "system", "data": ""])
     }
 
     func generate(prompt: String, imagePath: String) async {
         guard await waitUntilReady() else { return }
-        isGenerating = true
-        partial = ""
+        beginTurn()
         if let b64 = Self.base64JPEG(at: imagePath) {
             sendMessage(["type": "image", "data": b64])
         }
@@ -86,8 +89,7 @@ final class RemoteRelayEngine: ObservableObject {
 
     func generate(pcmData: Data, imagePath: String?) async {
         guard await waitUntilReady() else { return }
-        isGenerating = true
-        partial = ""
+        beginTurn()
 
         // PCM is chunked ~32KB to avoid 1MiB WebSocket frame limits.
         let chunkSize = 32 * 1024
@@ -102,6 +104,28 @@ final class RemoteRelayEngine: ObservableObject {
             sendMessage(["type": "image", "data": b64])
         }
         sendMessage(["type": "system", "data": ""])
+    }
+
+    private func beginTurn() {
+        isGenerating = true
+        partial = ""
+        generationNonce &+= 1
+    }
+
+    // Abandon whatever the relay is doing. We can't tell the Mac server to
+    // stop mid-turn (protocol has no cancel), but bumping the nonce makes
+    // handleMessage() drop any late-arriving tokens/text so they can't
+    // clobber the cloud answer we're about to switch to.
+    func abandonCurrent() {
+        generationNonce &+= 1
+        partial = ""
+        isGenerating = false
+        if let cont = pendingCompletion {
+            pendingCompletion = nil
+            cont.resume(throwing: NSError(domain: "Otto.Relay", code: 99,
+                                          userInfo: [NSLocalizedDescriptionKey: "abandoned"]))
+        }
+        log.notice("abandonCurrent — bumped nonce; relay will keep streaming until server finishes")
     }
 
     func complete(systemPrompt: String, userPrompt: String, maxTokens: Int = 800) async throws -> String {
@@ -218,22 +242,23 @@ final class RemoteRelayEngine: ObservableObject {
 
         switch type {
         case "token":
+            // Drop tokens that arrive after abandonCurrent() — isGenerating is
+            // set false there so late frames from an aborted turn can't
+            // clobber the cloud answer we've switched to.
+            guard isGenerating else { return }
             if let decoded = Data(base64Encoded: payload),
                let tok = String(data: decoded, encoding: .utf8) {
-                if !isGenerating {
-                    isGenerating = true
-                    partial = ""
-                    completionBuffer = ""
-                }
                 partial.append(tok)
                 completionBuffer.append(tok)
             }
         case "audio":
+            guard isGenerating else { return }
             if let audioData = Data(base64Encoded: payload) {
                 onAudioChunk?(audioData)
                 lastAudioChunk = audioData
             }
         case "text":
+            guard isGenerating else { return }
             // End-of-turn marker.
             if let decoded = Data(base64Encoded: payload),
                let str = String(data: decoded, encoding: .utf8) {

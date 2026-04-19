@@ -25,6 +25,13 @@ final class CactusEngine: ObservableObject {
     private var model: CactusModelT?
     private let log = Logger(subsystem: "voice-ai-copilot", category: "CactusEngine")
 
+    // Bumped each time a generation is started or abandoned. Token callbacks
+    // check their captured nonce against this before appending — lets the
+    // timeout-fallback path in OttoStore drop tokens from a run we've given
+    // up on without needing to kill the underlying cactusComplete call
+    // (which has no cancellation hook exposed from C).
+    private var generationNonce: Int = 0
+
     func loadIfNeeded() async {
         if case .ready = loadState { return }
         if case .loading = loadState { return }
@@ -105,6 +112,8 @@ final class CactusEngine: ObservableObject {
         }
         isGenerating = true
         partial = ""
+        generationNonce &+= 1
+        let myNonce = generationNonce
 
         // --- [stage 1] sanity check image path --------------------------------------------------
         // Cactus's vision encoder uses stb_image, which only decodes JPEG/PNG/BMP/GIF/TGA/PSD/HDR/PIC.
@@ -131,7 +140,12 @@ final class CactusEngine: ObservableObject {
 
         // --- [stage 2] build messages + options -------------------------------------------------
         let messagesJson = buildMessagesJson(userPrompt: userPrompt, imagePath: safeImagePath)
-        let options = #"{"max_tokens":200,"temperature":0.2,"top_p":0.9,"stop":["<end_of_turn>","<|end|>","</s>"]}"#
+        // Cactus's cloud-handoff resolver (see cactus_cloud.h :: resolve_cloud_api_key)
+        // reads `cloud_key` from options_json first, then falls back to the
+        // CACTUS_CLOUD_KEY / CACTUS_CLOUD_API_KEY env vars. Passing it here
+        // silences the [cloud_handoff] warning and lets Cactus route to its
+        // managed API when it judges the local output insufficient.
+        let options = Self.completionOptionsJson(maxTokens: 200)
 
         // Round-trip: verify the image path survives JSON encoding intact. If it doesn't, we
         // know the bug is Swift-side escaping, not Cactus. If it does, the bug is downstream.
@@ -166,7 +180,11 @@ final class CactusEngine: ObservableObject {
                 _ = try cactusComplete(model, messagesJson, options, nil, { token, _ in
                     firstTokenBox.setIfUnset()
                     tokenCounter.increment()
-                    Task { @MainActor in self?.partial.append(token) }
+                    Task { @MainActor in
+                        // Drop tokens from an abandoned run (nonce bumped elsewhere).
+                        guard let self = self, self.generationNonce == myNonce else { return }
+                        self.partial.append(token)
+                    }
                 }, pcmData)
             }.value
 
@@ -190,7 +208,23 @@ final class CactusEngine: ObservableObject {
             partial.append("\n\n[error] \(cactusErr.isEmpty ? error.localizedDescription : cactusErr)\n\n[diag] stage=\(stage) took=\(String(format: "%.2f", dt))s availableMB=\(avail1) footprintMB=\(footprint1)\n[image] \(imageDiag)\n[audio] pcmBytes=\(pcmData?.count ?? 0)")
         }
 
+        // Don't clobber UI state if the run was abandoned mid-flight (e.g.
+        // OttoStore timed us out and already switched to the cloud path).
+        if generationNonce == myNonce {
+            isGenerating = false
+        }
+    }
+
+    // Abandon whatever's currently generating. The underlying cactusComplete
+    // C call can't be truly cancelled, so it keeps running in the worker
+    // thread until it hits max_tokens — but any tokens it emits from now on
+    // will no-op (nonce check in the callback), and UI state is reset so
+    // the next turn starts clean.
+    func abandonCurrent() {
+        generationNonce &+= 1
+        partial = ""
         isGenerating = false
+        log.notice("abandonCurrent — bumped nonce, cactusComplete will keep running in background until max_tokens")
     }
 
     deinit {
@@ -231,7 +265,7 @@ final class CactusEngine: ObservableObject {
             data: try JSONSerialization.data(withJSONObject: messages),
             encoding: .utf8
         )!
-        let options = "{\"max_tokens\":\(maxTokens),\"temperature\":0.2,\"top_p\":0.9,\"stop\":[\"<end_of_turn>\",\"<|end|>\",\"</s>\"]}"
+        let options = Self.completionOptionsJson(maxTokens: maxTokens)
 
         let buffer = TokenBuffer()
         try await Task.detached(priority: .userInitiated) {
@@ -257,6 +291,28 @@ final class CactusEngine: ObservableObject {
         // `Failed to load image: /\/private\/var\/...`.
         let data = try! JSONSerialization.data(withJSONObject: obj, options: [.withoutEscapingSlashes])
         return String(data: data, encoding: .utf8)!
+    }
+
+    // Build the options_json string passed to cactus_complete. The `cloud_key`
+    // field is what Cactus's resolver in cactus_cloud.h reads to enable its
+    // managed cloud-handoff path (and to silence the [cloud_handoff] no-key
+    // warning). If Secrets.cactusCloudKey is the placeholder string, we
+    // omit the field entirely so Cactus knows we're deliberately on-device.
+    private static func completionOptionsJson(maxTokens: Int) -> String {
+        var parts: [String] = [
+            "\"max_tokens\":\(maxTokens)",
+            "\"temperature\":0.2",
+            "\"top_p\":0.9",
+            "\"stop\":[\"<end_of_turn>\",\"<|end|>\",\"</s>\"]"
+        ]
+        let key = Secrets.cactusCloudKey
+        if !key.isEmpty, !key.hasPrefix("REPLACE_") {
+            // Escape the key minimally (it's a base-ish token, shouldn't
+            // contain quotes, but be defensive against future rotations).
+            let escaped = key.replacingOccurrences(of: "\"", with: "\\\"")
+            parts.append("\"cloud_key\":\"\(escaped)\"")
+        }
+        return "{" + parts.joined(separator: ",") + "}"
     }
 
     // MARK: - Diagnostics

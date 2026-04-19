@@ -77,6 +77,7 @@
 				860AE9AA2F9430E700C8E980 /* Sources */,
 				860AE9AB2F9430E700C8E980 /* Frameworks */,
 				860AE9AC2F9430E700C8E980 /* Resources */,
+				860AECA02F950000A0C8E980 /* Copy .mlpackage bundles for Cactus NPU */,
 				860AEBB22F94349800C8E980 /* Embed Frameworks */,
 			);
 			buildRules = (
@@ -137,6 +138,32 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		860AECA02F950000A0C8E980 /* Copy .mlpackage bundles for Cactus NPU */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Voice-AI-Copilot/gemma-4-e2b-it/audio_encoder.mlpackage",
+				"$(SRCROOT)/Voice-AI-Copilot/gemma-4-e2b-it/vision_encoder.mlpackage",
+			);
+			name = "Copy .mlpackage bundles for Cactus NPU";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/audio_encoder.mlpackage",
+				"$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/vision_encoder.mlpackage",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Xcode's filesystem-synchronized group auto-compiles .mlpackage into\n# .mlmodelc, but Cactus's NPU loader specifically looks for .mlpackage\n# bundles at the bundle root. Restore them from source so the Gemma 4\n# E2B vision + audio encoders can run on the Neural Engine instead of\n# falling back to CPU.\n#\n# Note: this target has ENABLE_USER_SCRIPT_SANDBOXING = NO. The sandbox\n# grants access to directory *entries* declared in inputPaths/outputPaths\n# but not recursively to their contents, so rsync couldn't see inside the\n# .mlpackage bundles (Manifest.json + Data/). Disabling the sandbox for\n# this target avoids the brittle alternative of listing every file.\nset -e\nSRC=\"${SRCROOT}/Voice-AI-Copilot/gemma-4-e2b-it\"\nDEST=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app\"\nif [ ! -d \"$SRC\" ]; then\n  echo \"[cactus-mlpackage] source dir not found at $SRC — skipping\"\n  exit 0\nfi\nshopt -s nullglob 2>/dev/null || true\nfor pkg in \"$SRC\"/*.mlpackage; do\n  [ -d \"$pkg\" ] || continue\n  name=$(basename \"$pkg\")\n  echo \"[cactus-mlpackage] rsync $name -> $DEST/$name\"\n  rsync -a --delete \"$pkg/\" \"$DEST/$name/\"\ndone\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		860AE9AA2F9430E700C8E980 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -185,7 +212,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -246,7 +273,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;

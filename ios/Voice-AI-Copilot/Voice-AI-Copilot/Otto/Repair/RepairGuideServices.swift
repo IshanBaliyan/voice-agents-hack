@@ -194,12 +194,13 @@ final class NanobananaService {
 // MARK: - Gemini cloud text fallback (gemini-2.5-flash, JSON mode)
 // Runs only when on-device Gemma returns unparseable output. Uses native
 // response-schema enforcement so we virtually never parse-fail the cloud path.
+//
+// HTTP plumbing + primary/fallback key retry live in GeminiCloudChatService;
+// this class stays as the thin repair-specific wrapper that defines the
+// schema and parses the returned JSON into a RepairManual.
 
 final class GeminiCloudTextService {
-    private let model = "gemini-2.5-flash"
-    private var endpoint: URL {
-        URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent")!
-    }
+    private let cloud = GeminiCloudChatService()
 
     func generateManual(for query: String, vehicle: String) async throws -> RepairManual {
         let instruction = """
@@ -228,25 +229,7 @@ final class GeminiCloudTextService {
             "required": ["title", "steps"]
         ]
 
-        let body: [String: Any] = [
-            "contents": [["parts": [["text": instruction]]]],
-            "generationConfig": [
-                "responseMimeType": "application/json",
-                "responseSchema":   schema,
-                "temperature":      0.2
-            ]
-        ]
-
-        let data = try await post(body: body, apiKey: Secrets.geminiAPIKey)
-        guard let root    = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let cands   = root["candidates"] as? [[String: Any]],
-              let content = cands.first?["content"] as? [String: Any],
-              let parts   = content["parts"] as? [[String: Any]],
-              let text    = parts.first?["text"] as? String else {
-            let snippet = String(data: data, encoding: .utf8)?.prefix(240) ?? ""
-            throw NSError(domain: "Otto.Cloud", code: 2,
-                          userInfo: [NSLocalizedDescriptionKey: "malformed cloud response. \(snippet)"])
-        }
+        let text = try await cloud.structured(instruction: instruction, schema: schema, temperature: 0.3)
         print("[Otto][Cloud] raw JSON:\n\(text)")
 
         guard let manual = GemmaInstructionService.parse(text, query: query, vehicle: vehicle) else {
@@ -256,23 +239,6 @@ final class GeminiCloudTextService {
         return manual
     }
 
-    private func post(body: [String: Any], apiKey: String) async throws -> Data {
-        var comps = URLComponents(url: endpoint, resolvingAgainstBaseURL: false)!
-        comps.queryItems = [URLQueryItem(name: "key", value: apiKey)]
-        var req = URLRequest(url: comps.url!)
-        req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try JSONSerialization.data(withJSONObject: body)
-        req.timeoutInterval = 30
-
-        let (data, response) = try await URLSession.shared.data(for: req)
-        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            let snippet = String(data: data, encoding: .utf8)?.prefix(240) ?? ""
-            throw NSError(domain: "Otto.Cloud", code: http.statusCode,
-                          userInfo: [NSLocalizedDescriptionKey: "HTTP \(http.statusCode) — \(snippet)"])
-        }
-        return data
-    }
 }
 
 // MARK: - On-device cache (JSON manifest + PNGs per step)
