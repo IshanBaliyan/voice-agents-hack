@@ -273,6 +273,9 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Otto uses the camera to look at your car, tools, and parts.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Otto listens to your questions so you can keep your hands on the car.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Otto transcribes your speech on-device to answer you hands-free.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -316,6 +319,9 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Otto uses the camera to look at your car, tools, and parts.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Otto listens to your questions so you can keep your hands on the car.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Otto transcribes your speech on-device to answer you hands-free.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
